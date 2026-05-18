@@ -29,12 +29,18 @@ async function generateQR(token, bookingId) {
 
 // ── Helper — calculate segment fare ─────────────────
 function calcFare(pricePerKm, minFare, maxFare, fromDist, toDist) {
-  const dist = parseFloat(toDist) - parseFloat(fromDist);
+  const dist = Math.abs(parseFloat(toDist) - parseFloat(fromDist));
   const fare = dist * parseFloat(pricePerKm);
   return Math.min(
     Math.max(Math.round(fare), parseFloat(minFare)),
     parseFloat(maxFare),
   );
+}
+
+// ── Service fee calculation ──────────────────────────
+function calcServiceFee(fare, isConnecting) {
+  const pct = isConnecting ? 0.08 : 0.05;
+  return Math.round(fare * pct);
 }
 
 // ── CREATE BOOKING ───────────────────────────────────

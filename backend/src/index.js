@@ -3,8 +3,10 @@ require("dotenv").config();
 const authRoutes = require("./routes/auth");
 const ownerRoutes = require("./routes/owners");
 const busRoutes = require("./routes/buses");
-const searchRoutes = require('./routes/search');
-const bookingRoutes = require('./routes/bookings');
+const searchRoutes = require("./routes/search");
+const bookingRoutes = require("./routes/bookings");
+const userRoutes = require("./routes/users");
+const seatRoutes = require("./routes/seats");
 
 const express = require("express");
 const http = require("http");
@@ -28,8 +30,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/owners", ownerRoutes);
 app.use("/api/buses", busRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/bookings', bookingRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/seats", seatRoutes);
 
 // ── Health check route ──────────────────────────────
 app.get("/health", (req, res) => {

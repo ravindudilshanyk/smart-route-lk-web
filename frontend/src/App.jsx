@@ -12,6 +12,7 @@ import SeatSelectPage from "./pages/passenger/SeatSelectPage";
 import MyBookingsPage from "./pages/passenger/MyBookingsPage";
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import AddBusPage from "./pages/owner/AddBusPage";
+import CompleteProfilePage from "./pages/CompleteProfilePage";
 
 // Protected route wrapper
 function ProtectedRoute({ children, role }) {
@@ -71,6 +72,15 @@ function AppRoutes() {
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
+
+      <Route
+        path="/complete-profile"
+        element={
+          <ProtectedRoute>
+            <CompleteProfilePage />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }
