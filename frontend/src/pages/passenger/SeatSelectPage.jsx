@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/layout/Navbar";
-import { busAPI, bookingAPI } from "../../services/api";
+import { busAPI } from "../../services/api";
 import api from "../../services/api";
 import toast from "react-hot-toast";
 import {
   ArrowRight,
-  Plus,
-  Minus,
   Info,
   Clock,
   MapPin,
   CreditCard,
+  CheckCircle,
+  ChevronRight,
+  ChevronLeft,
+  X,
+  Download,
 } from "lucide-react";
 
 export default function SeatSelectPage() {
@@ -23,161 +26,256 @@ export default function SeatSelectPage() {
   const date = state?.date;
   const origin = state?.origin;
   const destination = state?.destination;
-  const leg = result?.legs?.[0];
+  const legs = result?.legs || [];
 
-  const [busData, setBusData] = useState(null);
-  const [seatAvailability, setSeatAvailability] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [selectedSeats, setSelectedSeats] = useState([]);
+  const [currentLegIdx, setCurrentLegIdx] = useState(0);
+  const [legSelections, setLegSelections] = useState(
+    legs.map((leg) => ({
+      leg,
+      busData: null,
+      availability: {},
+      selectedSeats: [],
+      payOnBus: false,
+      loaded: false,
+    })),
+  );
   const [passengers, setPassengers] = useState([
-    { name: "", nic: "", gender: "", seat_id: null, seat_number: null },
+    { name: "", gender: "", nic: "" },
   ]);
-  const [step, setStep] = useState(1); // 1=seats, 2=details, 3=payment
+  const [whatsapp, setWhatsapp] = useState("");
+  const [step, setStep] = useState("seats");
   const [submitting, setSubmitting] = useState(false);
+  const [bookingResult, setBookingResult] = useState(null);
+
+  const leg = legs[currentLegIdx];
+  const ls = legSelections[currentLegIdx];
 
   useEffect(() => {
-    if (!busId || !leg) {
+    if (!result || legs.length === 0) {
       navigate("/");
       return;
     }
-    fetchBusData();
-  }, [busId]);
+    loadLeg(0);
+  }, []);
 
-  const fetchBusData = async () => {
-    setLoading(true);
+  const loadLeg = async (idx) => {
+    if (legSelections[idx]?.loaded) return;
+    const l = legs[idx];
     try {
-      const res = await busAPI.getBusById(busId);
-      setBusData(res.data);
-
-      // Fetch seat availability for this date and segment
-      const availRes = await api.get(`/seats/availability`, {
-        params: {
-          bus_id: busId,
-          travel_date: date,
-          board_stop_order: leg.board_stop_order || 1,
-          drop_stop_order: leg.drop_stop_order || 99,
-        },
-      });
-      setSeatAvailability(availRes.data.availability || {});
-    } catch (err) {
-      toast.error("Failed to load bus details.");
-    } finally {
-      setLoading(false);
+      const [busRes, availRes] = await Promise.all([
+        busAPI.getBusById(l.bus_id),
+        api
+          .get("/seats/availability", {
+            params: {
+              bus_id: l.bus_id,
+              travel_date: date,
+              board_stop_order: l.board_stop_order || 1,
+              drop_stop_order: l.drop_stop_order || 99,
+            },
+          })
+          .catch(() => ({ data: { availability: {} } })),
+      ]);
+      setLegSelections((prev) =>
+        prev.map((ls, i) =>
+          i === idx
+            ? {
+                ...ls,
+                busData: busRes.data,
+                availability: availRes.data.availability || {},
+                loaded: true,
+              }
+            : ls,
+        ),
+      );
+    } catch {
+      toast.error("Failed to load bus layout.");
     }
   };
 
-  const getSeatStatus = (seat) => {
-    const info = seatAvailability[seat.id];
+  const getSeatStatus = (seat, availability) => {
+    const info = availability?.[seat.id];
     if (!info) return "available";
     if (info.fully_booked) return "booked";
     if (info.partially_booked) return "partial";
     return "available";
   };
 
-  const getSeatTooltip = (seat) => {
-    const info = seatAvailability[seat.id];
-    if (!info) return null;
-    if (info.fully_booked) return `Fully booked for your journey`;
-    if (info.partially_booked)
-      return `Partially booked — available for your segment (${origin} → ${destination})`;
-    return null;
+  const getSeatTooltip = (seat, availability) => {
+    const info = availability?.[seat.id];
+    if (!info || (!info.fully_booked && !info.partially_booked)) return null;
+    if (info.fully_booked) return "Fully booked for your journey";
+    return "Partially booked — your segment is available";
   };
 
   const handleSeatClick = (seat) => {
-    const status = getSeatStatus(seat);
+    const status = getSeatStatus(seat, ls.availability);
     if (status === "booked") return;
-
-    const isSelected = selectedSeats.find((s) => s.id === seat.id);
-
+    const isSelected = ls.selectedSeats.find((s) => s.id === seat.id);
     if (isSelected) {
-      // Deselect
-      setSelectedSeats((prev) => prev.filter((s) => s.id !== seat.id));
-      setPassengers((prev) =>
-        prev.map((p) =>
-          p.seat_id === seat.id
-            ? { ...p, seat_id: null, seat_number: null }
-            : p,
+      setLegSelections((prev) =>
+        prev.map((l, i) =>
+          i === currentLegIdx
+            ? {
+                ...l,
+                selectedSeats: l.selectedSeats.filter((s) => s.id !== seat.id),
+              }
+            : l,
         ),
       );
+      setPassengers((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
     } else {
-      // Select — assign to first unassigned passenger
-      const unassigned = passengers.findIndex((p) => !p.seat_id);
-      if (unassigned === -1) {
-        toast.error("Add more passengers first before selecting more seats.");
-        return;
-      }
-      setSelectedSeats((prev) => [...prev, seat]);
-      setPassengers((prev) =>
-        prev.map((p, i) =>
-          i === unassigned
-            ? { ...p, seat_id: seat.id, seat_number: seat.seat_number }
-            : p,
+      setLegSelections((prev) =>
+        prev.map((l, i) =>
+          i === currentLegIdx
+            ? { ...l, selectedSeats: [...l.selectedSeats, seat] }
+            : l,
         ),
       );
+      setPassengers((prev) => {
+        const newCount = ls.selectedSeats.length + 1;
+        if (newCount > prev.length)
+          return [...prev, { name: "", gender: "", nic: "" }];
+        return prev;
+      });
     }
   };
 
-  const addPassenger = () => {
-    if (passengers.length >= 6) {
-      toast.error("Maximum 6 passengers per booking.");
+  const togglePayOnBus = () => {
+    setLegSelections((prev) =>
+      prev.map((l, i) => {
+        if (i !== currentLegIdx) return l;
+        const turningOn = !l.payOnBus;
+        return {
+          ...l,
+          payOnBus: turningOn,
+          // Clear selected seats when pay-on-bus is turned ON
+          selectedSeats: turningOn ? [] : l.selectedSeats,
+        };
+      }),
+    );
+    // Also reset passengers to 1 when turning on pay-on-bus
+    if (!ls?.payOnBus) {
+      setPassengers([{ name: "", gender: "", nic: "" }]);
+    }
+  };
+
+  // Seats selected = can proceed. Pay-on-bus alone = can proceed too.
+  const canProceed = () => {
+    return ls?.payOnBus || ls?.selectedSeats.length > 0;
+  };
+
+  // Check if ALL legs are pay-on-bus (nothing to pay online)
+  const allPayOnBus = legSelections.every(
+    (ls) => ls.payOnBus && ls.selectedSeats.length === 0,
+  );
+
+  const handleNextLeg = async () => {
+    if (!canProceed()) {
+      toast.error("Please select a seat or choose pay on bus.");
       return;
     }
-    setPassengers((prev) => [
-      ...prev,
-      { name: "", nic: "", gender: "", seat_id: null, seat_number: null },
-    ]);
+    // Only check gender if seats are selected
+    if (ls.selectedSeats.length > 0) {
+      const missingGender = passengers
+        .slice(0, ls.selectedSeats.length)
+        .some((p) => !p.gender);
+      if (missingGender) {
+        toast.error("Please select gender for all passengers.");
+        return;
+      }
+    }
+    if (currentLegIdx < legs.length - 1) {
+      const next = currentLegIdx + 1;
+      setCurrentLegIdx(next);
+      await loadLeg(next);
+    } else {
+      // All legs done — check if anything to pay
+      if (allPayOnBus) {
+        // Nothing to pay online — go straight to success with empty bookings
+        setBookingResult([]);
+        setStep("success");
+      } else {
+        setStep("payment");
+      }
+    }
   };
 
   const removePassenger = (idx) => {
     if (passengers.length === 1) return;
-    const removed = passengers[idx];
-    if (removed.seat_id) {
-      setSelectedSeats((prev) => prev.filter((s) => s.id !== removed.seat_id));
-    }
+    setLegSelections((prev) =>
+      prev.map((l, i) =>
+        i === currentLegIdx
+          ? { ...l, selectedSeats: l.selectedSeats.slice(0, -1) }
+          : l,
+      ),
+    );
     setPassengers((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const farePerSeat = leg?.fare || 0;
-  const serviceFee = Math.round(
-    farePerSeat * passengers.length * (result?.transfers > 0 ? 0.08 : 0.05),
+  const onlineFare = legSelections.reduce(
+    (sum, ls) => sum + ls.selectedSeats.length * (ls.leg?.fare || 0),
+    0,
   );
-  const totalFare = farePerSeat * passengers.length;
-  const totalPayable = totalFare + serviceFee;
+  const servicePct = (result?.transfers || 0) > 0 ? 0.08 : 0.05;
+  const serviceFee = Math.round(onlineFare * servicePct);
+  const totalPayable = onlineFare + serviceFee;
+  const cashLegs = legSelections.filter(
+    (ls) => ls.payOnBus && ls.selectedSeats.length === 0,
+  );
+  const cashFare = cashLegs.reduce(
+    (sum, ls) => sum + passengers.length * (ls.leg?.fare || 0),
+    0,
+  );
 
-  const handleProceed = () => {
-    if (selectedSeats.length !== passengers.length) {
-      toast.error("Please select a seat for every passenger.");
-      return;
-    }
-    const allFilled = passengers.every((p) => p.name && p.gender);
-    if (!allFilled) {
-      toast.error("Please fill in name and gender for all passengers.");
-      return;
-    }
-    setStep(3);
+  const busTypeLabel = {
+    ctb: "CTB",
+    private_normal: "Non-AC",
+    private_ac: "AC",
+    semi_luxury: "Semi-Luxury",
+    luxury: "Luxury",
+    highway_normal: "Highway",
+    highway_luxury: "Luxury Highway",
   };
 
-  const handleBooking = async () => {
+  const handleConfirmBooking = async () => {
+    if (!whatsapp) {
+      toast.error("Please enter your WhatsApp number.");
+      return;
+    }
+    if (!passengers[0].name) {
+      toast.error("Please enter your name.");
+      return;
+    }
     setSubmitting(true);
     try {
-      const res = await bookingAPI.create({
-        bus_id: busId,
-        travel_date: date,
-        board_stop_id: leg.board_stop_id,
-        drop_stop_id: leg.drop_stop_id,
-        whatsapp_number: passengers[0].whatsapp || "",
-        payment_method: "card",
-        is_connecting: (result?.transfers || 0) > 0,
-        passengers: passengers.map((p) => ({
-          passenger_name: p.name,
-          nic: p.nic || null,
-          gender: p.gender,
-          seat_id: p.seat_id,
-        })),
-      });
-
-      toast.success("Booking confirmed! QR ticket sent to WhatsApp 🎉");
-      navigate(`/bookings/${res.data.booking_id}`);
+      const bookingIds = [];
+      for (const ls of legSelections) {
+        if (ls.selectedSeats.length === 0) continue; // skip cash legs
+        const res = await api.post("/bookings", {
+          bus_id: ls.leg.bus_id,
+          travel_date: date,
+          board_stop_id: ls.leg.board_stop_id,
+          drop_stop_id: ls.leg.drop_stop_id,
+          whatsapp_number: whatsapp,
+          payment_method: "card",
+          is_connecting: (result?.transfers || 0) > 0,
+          passengers: passengers
+            .slice(0, ls.selectedSeats.length)
+            .map((p, i) => ({
+              passenger_name: p.name || `Passenger ${i + 1}`,
+              nic: p.nic || null,
+              gender: p.gender || "other",
+              seat_id: ls.selectedSeats[i]?.id,
+            })),
+        });
+        bookingIds.push({
+          booking_id: res.data.booking_id,
+          bus: ls.busData?.bus?.reg_number,
+          passengers: res.data.passengers,
+        });
+      }
+      setBookingResult(bookingIds);
+      setStep("success");
     } catch (err) {
       toast.error(err.response?.data?.error || "Booking failed.");
     } finally {
@@ -185,441 +283,978 @@ export default function SeatSelectPage() {
     }
   };
 
-  const layout = busData?.layout;
-  const seats = busData?.seats || [];
+  if (step === "success")
+    return (
+      <SuccessScreen
+        bookingResult={bookingResult}
+        origin={origin}
+        destination={destination}
+        date={date}
+        passengers={passengers}
+        onGoHome={() => navigate("/")}
+        onMyBookings={() => navigate("/bookings")}
+      />
+    );
+
+  if (step === "payment")
+    return (
+      <PaymentStep
+        legSelections={legSelections}
+        passengers={passengers}
+        whatsapp={whatsapp}
+        setWhatsapp={setWhatsapp}
+        onlineFare={onlineFare}
+        serviceFee={serviceFee}
+        totalPayable={totalPayable}
+        cashFare={cashFare}
+        servicePct={servicePct}
+        result={result}
+        origin={origin}
+        destination={destination}
+        date={date}
+        onBack={() => setStep("seats")}
+        onConfirm={handleConfirmBooking}
+        submitting={submitting}
+        busTypeLabel={busTypeLabel}
+      />
+    );
+
+  const layout = ls?.busData?.layout;
+  const seats = ls?.busData?.seats || [];
+  const busInfo = ls?.busData?.bus;
   const rows = layout
     ? Array.from({ length: layout.rows }, (_, i) => i + 1)
     : [];
   const cols = layout ? Array.from({ length: layout.cols }, (_, i) => i) : [];
   const aisleCol = layout?.aisle_col ?? 2;
-
   const seatAt = (row, col) =>
     seats.find((s) => s.row_index === row && s.col_index === col);
-
-  if (loading)
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Loading seat map...</p>
-          </div>
-        </div>
-      </div>
-    );
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 
-      {/* ── Journey header ── */}
-      <div className="bg-white border-b border-gray-100 sticky top-14 z-30">
-        <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
-              <MapPin size={14} className="text-brand-500" />
-              {leg?.board_stop_name}
-              <ArrowRight size={14} className="text-brand-500" />
-              {leg?.drop_stop_name}
-            </div>
-            <span className="text-gray-400 text-xs">·</span>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <Clock size={12} />
-              {leg?.board_time?.substring(0, 5)} →{" "}
-              {leg?.drop_time?.substring(0, 5)}
-            </div>
-            <span className="text-gray-400 text-xs">·</span>
-            <span className="text-xs text-gray-500">{date}</span>
-            <span className="text-gray-400 text-xs">·</span>
-            <span className="text-xs font-semibold text-brand-500">
-              {busData?.bus?.reg_number}
-            </span>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 sticky top-14 z-30 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-3">
+          <div className="flex items-center gap-2 text-sm mb-2 flex-wrap">
+            <MapPin size={13} className="text-brand-500 flex-none" />
+            <span className="font-bold text-gray-900">{origin}</span>
+            <ArrowRight size={13} className="text-brand-500" />
+            <span className="font-bold text-gray-900">{destination}</span>
+            <span className="text-gray-400 text-xs">· {date}</span>
           </div>
-
-          {/* Step indicator */}
-          <div className="flex items-center gap-0 mt-3">
-            {["Select seats", "Passenger details", "Payment"].map((s, i) => (
-              <div key={s} className="flex items-center">
-                <div
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full transition-colors ${
-                    step === i + 1
-                      ? "bg-brand-500 text-white"
-                      : step > i + 1
-                        ? "bg-green-100 text-green-600"
-                        : "bg-gray-100 text-gray-400"
-                  }`}
-                >
-                  <span>{step > i + 1 ? "✓" : i + 1}</span>
-                  <span className="hidden sm:inline">{s}</span>
+          {legs.length > 1 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {legs.map((l, i) => (
+                <div key={i} className="flex items-center gap-2 flex-none">
+                  <button
+                    onClick={() => {
+                      setCurrentLegIdx(i);
+                      loadLeg(i);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      i === currentLegIdx
+                        ? "bg-brand-500 text-white"
+                        : legSelections[i]?.payOnBus
+                          ? "bg-orange-100 text-orange-600 border border-orange-200"
+                          : legSelections[i]?.selectedSeats.length > 0
+                            ? "bg-green-100 text-green-600 border border-green-200"
+                            : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {legSelections[i]?.payOnBus
+                      ? "💵"
+                      : legSelections[i]?.selectedSeats.length > 0
+                        ? "✓"
+                        : i + 1}
+                    <span>
+                      Bus {i + 1}: {l.board_stop_name} → {l.drop_stop_name}
+                    </span>
+                  </button>
+                  {i < legs.length - 1 && (
+                    <ChevronRight
+                      size={12}
+                      className="text-gray-400 flex-none"
+                    />
+                  )}
                 </div>
-                {i < 2 && <div className="w-6 h-px bg-gray-200 mx-1" />}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-6 w-full">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* ── Seat map ── */}
-          <div className="flex-1">
-            {/* Legend */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-              <div className="text-xs font-semibold text-gray-500 mb-3">
-                Know your seat types
-              </div>
-              <div className="flex flex-wrap gap-4">
-                {[
-                  {
-                    color: "bg-green-100 border-green-300 text-green-700",
-                    label: "Available",
-                  },
-                  {
-                    color: "bg-red-100 border-red-300 text-red-700",
-                    label: "Fully booked",
-                  },
-                  {
-                    color: "bg-yellow-100 border-yellow-300 text-yellow-700",
-                    label: "Partial — hover for details",
-                  },
-                  {
-                    color: "bg-brand-500 border-brand-500 text-white",
-                    label: "Your selection",
-                  },
-                ].map((l) => (
-                  <div key={l.label} className="flex items-center gap-2">
-                    <div
-                      className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center text-xs font-bold ${l.color}`}
-                    >
-                      01
-                    </div>
-                    <span className="text-xs text-gray-500">{l.label}</span>
+      <div className="max-w-6xl mx-auto px-4 py-6 w-full flex-1">
+        <div className="flex flex-col xl:flex-row gap-6">
+          {/* ══ LEFT COLUMN ══ */}
+          <div className="flex-1 min-w-0">
+            {/* Bus info */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-lg font-extrabold text-gray-900">
+                      {busInfo?.reg_number}
+                    </span>
+                    <span className="bg-brand-50 text-brand-500 text-xs font-bold px-2 py-0.5 rounded-full">
+                      {busTypeLabel[busInfo?.bus_type] || busInfo?.bus_type}
+                    </span>
+                    {busInfo?.has_ac && (
+                      <span className="bg-blue-50 text-blue-500 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        AC
+                      </span>
+                    )}
+                    {busInfo?.has_wifi && (
+                      <span className="bg-green-50 text-green-500 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        WiFi
+                      </span>
+                    )}
+                    {busInfo?.has_water && (
+                      <span className="bg-cyan-50 text-cyan-500 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        Water
+                      </span>
+                    )}
                   </div>
-                ))}
+                  <div className="text-sm text-gray-500 mb-1">
+                    {busInfo?.route_name} · Route {busInfo?.route_number}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Clock size={12} className="text-brand-500" />
+                    <span className="font-bold text-gray-900">
+                      {leg?.board_time?.substring(0, 5)}
+                    </span>
+                    <ArrowRight size={12} className="text-brand-500" />
+                    <span className="font-bold text-gray-900">
+                      {leg?.drop_time?.substring(0, 5)}
+                    </span>
+                    <span className="text-gray-400 text-xs">
+                      · {leg?.board_stop_name} → {leg?.drop_stop_name}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-left sm:text-right flex-none">
+                  <div className="text-xs text-gray-400">Fare per seat</div>
+                  <div className="text-2xl font-extrabold text-brand-500">
+                    {(leg?.fare || 0).toLocaleString()} LKR
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {origin} → {destination}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Bus layout */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-              <div className="text-xs font-semibold text-gray-400 text-center mb-4 uppercase tracking-wider">
-                Front of bus
-              </div>
-
-              {/* Driver row */}
-              <div className="flex justify-end mb-3 pr-1">
-                <div className="w-10 h-10 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-xs text-gray-400 font-semibold">
-                  DRV
-                </div>
-              </div>
-
-              {/* Seat grid */}
-              <div className="overflow-x-auto">
-                <div className="inline-block">
-                  {rows.map((row) => (
-                    <div key={row} className="flex gap-1.5 mb-1.5">
-                      {cols.map((col) => {
-                        if (col === aisleCol) {
-                          return <div key={col} className="w-8" />;
-                        }
-                        const seat = seatAt(row, col);
-                        if (!seat || !seat.is_active) {
-                          return <div key={col} className="w-10 h-10" />;
-                        }
-                        const status = getSeatStatus(seat);
-                        const isSelected = selectedSeats.find(
-                          (s) => s.id === seat.id,
-                        );
-                        const tooltip = getSeatTooltip(seat);
-
-                        return (
-                          <div key={col} className="relative group">
-                            <button
-                              onClick={() => handleSeatClick(seat)}
-                              disabled={status === "booked"}
-                              className={`w-10 h-10 rounded-xl border-2 text-xs font-bold transition-all ${
-                                isSelected
-                                  ? "bg-brand-500 border-brand-500 text-white shadow-lg shadow-brand-200"
-                                  : status === "booked"
-                                    ? "bg-red-100 border-red-300 text-red-700 cursor-not-allowed"
-                                    : status === "partial"
-                                      ? "bg-yellow-100 border-yellow-300 text-yellow-700 hover:border-yellow-400"
-                                      : "bg-green-100 border-green-300 text-green-700 hover:border-green-500 hover:shadow-sm"
-                              }`}
-                            >
-                              {seat.seat_number}
-                            </button>
-
-                            {/* Tooltip */}
-                            {tooltip && (
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">
-                                {tooltip}
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+            {/* Pay on bus toggle */}
+            <div
+              className={`rounded-2xl border-2 p-4 mb-4 transition-all ${
+                ls?.payOnBus
+                  ? "bg-orange-50 border-orange-300"
+                  : "bg-white border-gray-200 hover:border-orange-200"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="font-semibold text-sm text-gray-900 mb-1 flex items-center gap-2">
+                    💵 Pay cash on this bus
+                    {ls?.payOnBus && (
+                      <span className="bg-orange-100 text-orange-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 leading-relaxed">
+                    If this bus doesn't have a seat for your full journey, you
+                    can skip online payment and pay the conductor directly. Your
+                    trip continues seamlessly.
+                  </div>
+                  {ls?.payOnBus && (
+                    <div className="mt-2 text-xs text-orange-600 font-semibold">
+                      ✓ You will pay the conductor ~
+                      {(passengers.length * (leg?.fare || 0)).toLocaleString()}{" "}
+                      LKR on boarding
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-
-              <div className="text-xs font-semibold text-gray-400 text-center mt-4 uppercase tracking-wider">
-                Back of bus
+                <button
+                  onClick={togglePayOnBus}
+                  className={`flex-none w-12 h-6 rounded-full transition-all relative mt-1 ${ls?.payOnBus ? "bg-orange-500" : "bg-gray-200"}`}
+                >
+                  <div
+                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${ls?.payOnBus ? "left-6" : "left-0.5"}`}
+                  />
+                </button>
               </div>
             </div>
+
+            {/* ══ PAY ON BUS = show confirmation, hide layout ══ */}
+            {ls?.payOnBus ? (
+              <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-8 text-center">
+                <div className="text-5xl mb-4">💵</div>
+                <h3 className="font-bold text-gray-900 text-lg mb-2">
+                  Pay cash on this bus
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-6 max-w-sm mx-auto">
+                  You'll board this bus and pay the conductor directly. Your
+                  seat will be assigned on boarding. This option doesn't
+                  guarantee a specific seat.
+                </p>
+                <div className="bg-white rounded-xl p-4 border border-orange-200 mb-4">
+                  <div className="text-sm font-bold text-orange-600">
+                    Estimated cash fare: ~
+                    {(passengers.length * (leg?.fare || 0)).toLocaleString()}{" "}
+                    LKR
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    for {passengers.length} passenger
+                    {passengers.length > 1 ? "s" : ""} · paid directly to
+                    conductor
+                  </div>
+                </div>
+                <button
+                  onClick={togglePayOnBus}
+                  className="text-xs text-orange-500 hover:text-orange-700 underline transition-colors"
+                >
+                  ← Change my mind — select a seat instead
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* ══ Seat legend ══ */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+                  <div className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">
+                    Seat map legend
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      {
+                        cls: "bg-green-100 border-green-300 text-green-700",
+                        label: "Available",
+                      },
+                      {
+                        cls: "bg-red-100 border-red-300 text-red-400",
+                        label: "Booked",
+                      },
+                      {
+                        cls: "bg-yellow-100 border-yellow-300 text-yellow-600",
+                        label: "Partial",
+                      },
+                      {
+                        cls: "bg-brand-500 border-brand-500 text-white",
+                        label: "Your pick",
+                      },
+                    ].map((l) => (
+                      <div key={l.label} className="flex items-center gap-2">
+                        <div
+                          className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center text-xs font-bold flex-none ${l.cls}`}
+                        >
+                          05
+                        </div>
+                        <span className="text-xs text-gray-500">{l.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-50 flex gap-4 text-xs text-gray-400">
+                    <span className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-blue-200 rounded" /> Male
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-pink-200 rounded" /> Female
+                    </span>
+                    <span className="flex items-center gap-1">🚪 Door</span>
+                    <span className="flex items-center gap-1">— Aisle</span>
+                  </div>
+                </div>
+
+                {/* ══ Bus layout ══ */}
+                {!ls?.loaded ? (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">
+                        Loading seat layout...
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <div className="text-xs font-bold text-gray-400 text-center mb-3 uppercase tracking-widest">
+                      🚌 Front
+                    </div>
+                    <div className="flex justify-center">
+                      <div className="border-2 border-gray-200 rounded-2xl p-4 bg-gray-50 inline-block">
+                        {/* Driver + door */}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <div className="w-10 h-10 border-2 border-dashed border-gray-300 rounded-xl bg-white flex items-center justify-center flex-none">
+                            <span className="text-xs text-gray-400 font-bold">
+                              DRV
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 px-2 py-1 border-2 border-dashed border-green-300 rounded-lg bg-green-50">
+                            <span className="text-sm">🚪</span>
+                            <span className="text-xs text-green-600 font-semibold">
+                              Entry
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Rows */}
+                        {rows.map((row) => (
+                          <div
+                            key={row}
+                            className="flex gap-1.5 mb-1.5 items-center"
+                          >
+                            <span className="text-xs text-gray-300 w-3 flex-none text-right">
+                              {row}
+                            </span>
+                            {cols.map((col) => {
+                              if (col === aisleCol) {
+                                return (
+                                  <div
+                                    key={col}
+                                    className="w-5 flex items-center justify-center flex-none"
+                                  >
+                                    <div className="w-px h-9 border-l-2 border-dashed border-gray-300" />
+                                  </div>
+                                );
+                              }
+                              const seat = seatAt(row, col);
+                              if (!seat || !seat.is_active)
+                                return (
+                                  <div
+                                    key={col}
+                                    className="w-10 h-10 flex-none"
+                                  />
+                                );
+                              const status = getSeatStatus(
+                                seat,
+                                ls.availability,
+                              );
+                              const isSelected = ls.selectedSeats.find(
+                                (s) => s.id === seat.id,
+                              );
+                              const tooltip = getSeatTooltip(
+                                seat,
+                                ls.availability,
+                              );
+                              return (
+                                <div
+                                  key={col}
+                                  className="relative group flex-none"
+                                >
+                                  <button
+                                    onClick={() => handleSeatClick(seat)}
+                                    disabled={status === "booked"}
+                                    title={tooltip || ""}
+                                    className={`w-10 h-10 rounded-lg text-xs font-bold transition-all border-2 ${
+                                      isSelected
+                                        ? "bg-brand-500 border-brand-600 text-white shadow-md"
+                                        : status === "booked"
+                                          ? "bg-red-100 border-red-200 text-red-400 cursor-not-allowed"
+                                          : status === "partial"
+                                            ? "bg-yellow-100 border-yellow-300 text-yellow-700 hover:border-yellow-400 cursor-pointer"
+                                            : "bg-green-100 border-green-300 text-green-700 hover:border-green-500 hover:bg-green-200 cursor-pointer"
+                                    }`}
+                                  >
+                                    {seat.seat_number}
+                                  </button>
+                                  {tooltip && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-900 text-white text-xs rounded-lg px-2.5 py-1.5 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-xl">
+                                      {tooltip}
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            <div className="w-1 h-10 bg-gray-200 rounded-r-full flex-none" />
+                          </div>
+                        ))}
+
+                        {/* Exit */}
+                        <div className="flex items-center gap-1 mt-2 px-2 py-1 border-2 border-dashed border-green-300 rounded-lg bg-green-50 w-fit">
+                          <span className="text-sm">🚪</span>
+                          <span className="text-xs text-green-600 font-semibold">
+                            Exit
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs font-bold text-gray-400 text-center mt-3 uppercase tracking-widest">
+                      Back
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            {/* ══ END LEFT COLUMN ══ */}
           </div>
 
-          {/* ── Right panel ── */}
-          <div className="lg:w-80 flex-none space-y-4">
+          {/* ══ RIGHT COLUMN ══ */}
+          <div className="xl:w-72 flex-none space-y-4">
             {/* Passengers */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm text-gray-900">Passengers</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => removePassenger(passengers.length - 1)}
-                    disabled={passengers.length === 1}
-                    className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center hover:border-brand-500 hover:text-brand-500 transition-colors disabled:opacity-40"
-                  >
-                    <Minus size={13} />
-                  </button>
-                  <span className="text-sm font-bold text-gray-700">
+                <h3 className="font-bold text-sm text-gray-900">
+                  Passengers
+                  <span className="ml-2 bg-brand-50 text-brand-500 text-xs font-bold px-2 py-0.5 rounded-full">
                     {passengers.length}
                   </span>
-                  <button
-                    onClick={addPassenger}
-                    className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center hover:border-brand-500 hover:text-brand-500 transition-colors"
-                  >
-                    <Plus size={13} />
-                  </button>
+                </h3>
+                <div className="text-xs text-gray-400">
+                  {ls?.selectedSeats.length || 0} seat
+                  {ls?.selectedSeats.length !== 1 ? "s" : ""} selected
                 </div>
               </div>
 
               <div className="space-y-3">
-                {passengers.map((p, idx) => (
-                  <div
-                    key={idx}
-                    className="border border-gray-100 rounded-xl p-3"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-gray-600">
-                        Passenger {idx + 1}
-                        {idx === 0 && " (You)"}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {p.seat_number && (
-                          <span className="bg-brand-50 text-brand-500 text-xs font-bold px-2 py-0.5 rounded-full">
-                            Seat {p.seat_number}
-                          </span>
-                        )}
-                        {idx > 0 && (
-                          <button
-                            onClick={() => removePassenger(idx)}
-                            className="text-gray-300 hover:text-red-400 transition-colors text-base leading-none"
-                          >
-                            ×
-                          </button>
-                        )}
+                {passengers.map((p, idx) => {
+                  const seatForThis = ls?.selectedSeats?.[idx];
+                  return (
+                    <div
+                      key={idx}
+                      className={`border rounded-xl p-3 transition-all ${seatForThis ? "border-brand-200 bg-brand-50" : "border-gray-100 bg-gray-50"}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-gray-700">
+                          {idx === 0
+                            ? "👤 You (Passenger 1)"
+                            : `👥 Passenger ${idx + 1}`}
+                          {idx > 0 && (
+                            <span className="text-gray-400 font-normal ml-1">
+                              (optional)
+                            </span>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {seatForThis && (
+                            <span className="bg-brand-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                              Seat {seatForThis.seat_number}
+                            </span>
+                          )}
+                          {idx > 0 && (
+                            <button
+                              onClick={() => removePassenger(idx)}
+                              className="text-gray-300 hover:text-red-400 transition-colors"
+                            >
+                              <X size={13} />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-
-                    <input
-                      type="text"
-                      placeholder="Full name *"
-                      value={p.name}
-                      onChange={(e) =>
-                        setPassengers((prev) =>
-                          prev.map((pp, i) =>
-                            i === idx ? { ...pp, name: e.target.value } : pp,
-                          ),
-                        )
-                      }
-                      className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-brand-500 mb-2"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <select
-                        value={p.gender}
-                        onChange={(e) =>
-                          setPassengers((prev) =>
-                            prev.map((pp, i) =>
-                              i === idx
-                                ? { ...pp, gender: e.target.value }
-                                : pp,
-                            ),
-                          )
-                        }
-                        className="border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-brand-500 text-gray-600"
-                      >
-                        <option value="">Gender *</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
-                      </select>
                       <input
                         type="text"
-                        placeholder="NIC (optional)"
-                        value={p.nic}
+                        placeholder={
+                          idx === 0 ? "Full name *" : "Name (optional)"
+                        }
+                        value={p.name}
                         onChange={(e) =>
                           setPassengers((prev) =>
                             prev.map((pp, i) =>
-                              i === idx ? { ...pp, nic: e.target.value } : pp,
+                              i === idx ? { ...pp, name: e.target.value } : pp,
                             ),
                           )
                         }
-                        className="border border-gray-200 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-brand-500"
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-500 mb-2 bg-white"
                       />
-                    </div>
-
-                    {!p.seat_number && (
-                      <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
-                        <Info size={11} /> Select a seat from the map
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={p.gender}
+                          onChange={(e) =>
+                            setPassengers((prev) =>
+                              prev.map((pp, i) =>
+                                i === idx
+                                  ? { ...pp, gender: e.target.value }
+                                  : pp,
+                              ),
+                            )
+                          }
+                          className={`border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-brand-500 bg-white text-gray-600 ${!p.gender && seatForThis ? "border-red-300" : "border-gray-200"}`}
+                        >
+                          <option value="">Gender *</option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="NIC (optional)"
+                          value={p.nic}
+                          onChange={(e) =>
+                            setPassengers((prev) =>
+                              prev.map((pp, i) =>
+                                i === idx ? { ...pp, nic: e.target.value } : pp,
+                              ),
+                            )
+                          }
+                          className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-500 bg-white"
+                        />
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {!seatForThis && !ls?.payOnBus && (
+                        <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
+                          <Info size={10} /> Tap a green seat to assign
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* WhatsApp for tickets */}
-              <div className="mt-3 border-t border-gray-50 pt-3">
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
-                  WhatsApp for tickets *
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+94 77 123 4567"
-                  value={passengers[0].whatsapp || ""}
-                  onChange={(e) =>
-                    setPassengers((prev) =>
-                      prev.map((pp, i) =>
-                        i === 0 ? { ...pp, whatsapp: e.target.value } : pp,
-                      ),
-                    )
-                  }
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-brand-500"
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  QR tickets sent here after payment
-                </p>
+              <div className="mt-3 text-xs text-gray-400 flex items-start gap-1.5 bg-gray-50 rounded-xl p-2.5">
+                <Info size={11} className="flex-none mt-0.5 text-brand-500" />
+                Select seats on the map — passengers are added automatically.
               </div>
             </div>
 
-            {/* Fare breakdown */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-              <h3 className="font-bold text-sm text-gray-900 mb-3">
-                Fare breakdown
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between text-gray-600">
-                  <span>
-                    Fare × {passengers.length} seat
-                    {passengers.length > 1 ? "s" : ""}
-                  </span>
-                  <span className="font-semibold">
-                    {totalFare.toLocaleString()} LKR
-                  </span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span className="flex items-center gap-1">
-                    Service fee ({result?.transfers > 0 ? "8" : "5"}%)
-                    <Info size={11} className="text-gray-400" />
-                  </span>
-                  <span className="font-semibold">
-                    {serviceFee.toLocaleString()} LKR
-                  </span>
-                </div>
-                <div className="border-t border-gray-100 pt-2 flex justify-between">
-                  <span className="font-bold text-gray-900">Total payable</span>
-                  <span className="font-extrabold text-brand-500 text-base">
-                    {totalPayable.toLocaleString()} LKR
-                  </span>
-                </div>
+            {/* Journey summary */}
+            {legs.length > 1 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                <h3 className="font-bold text-xs text-gray-600 uppercase tracking-wide mb-3">
+                  Journey summary
+                </h3>
+                {legSelections.map((ls, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-start justify-between text-xs py-2 border-b border-gray-50 last:border-0 ${i === currentLegIdx ? "text-gray-900" : "text-gray-400"}`}
+                  >
+                    <div>
+                      <div className="font-semibold">
+                        Bus {i + 1}: {ls.leg.board_stop_name} →{" "}
+                        {ls.leg.drop_stop_name}
+                      </div>
+                      <div className="mt-0.5">
+                        {ls.payOnBus && ls.selectedSeats.length === 0 ? (
+                          <span className="text-orange-500 font-semibold">
+                            💵 Pay on bus
+                          </span>
+                        ) : ls.selectedSeats.length > 0 ? (
+                          <span className="text-green-500 font-semibold">
+                            ✓ Seats:{" "}
+                            {ls.selectedSeats
+                              .map((s) => s.seat_number)
+                              .join(", ")}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">
+                            No seats selected
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="font-bold ml-2">
+                      {(
+                        ls.selectedSeats.length * (ls.leg.fare || 0)
+                      ).toLocaleString()}{" "}
+                      LKR
+                    </div>
+                  </div>
+                ))}
               </div>
+            )}
 
-              <div className="mt-3 bg-brand-50 rounded-xl p-3 text-xs text-gray-500 flex items-start gap-2">
-                <Info size={12} className="text-brand-500 flex-none mt-0.5" />
+            {/* Fare preview */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span>
-                  You pay for your full route{" "}
-                  <strong className="text-gray-700">
-                    {origin} → {destination}
-                  </strong>
-                  , not just the seat segment. Seats may be shared for different
-                  route sections.
+                  Fare ({ls?.selectedSeats.length || 0} seat
+                  {ls?.selectedSeats.length !== 1 ? "s" : ""})
+                </span>
+                <span className="font-semibold">
+                  {(
+                    (ls?.selectedSeats.length || 0) * (leg?.fare || 0)
+                  ).toLocaleString()}{" "}
+                  LKR
+                </span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Service fee est.</span>
+                <span className="font-semibold">
+                  {Math.round(
+                    (ls?.selectedSeats.length || 0) *
+                      (leg?.fare || 0) *
+                      servicePct,
+                  ).toLocaleString()}{" "}
+                  LKR
                 </span>
               </div>
             </div>
 
-            {/* Confirm button */}
-            {step === 1 && (
+            {/* Navigation */}
+            <div className="space-y-2">
               <button
-                onClick={() => setStep(2)}
-                disabled={selectedSeats.length === 0}
-                className="w-full bg-brand-500 text-white py-3.5 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                onClick={handleNextLeg}
+                disabled={!canProceed()}
+                className={`w-full py-3.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                  canProceed()
+                    ? "bg-brand-500 text-white hover:bg-brand-600 shadow-sm"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                }`}
               >
-                Continue to details
-                <ArrowRight size={16} />
+                {currentLegIdx < legs.length - 1 ? (
+                  <>
+                    Next bus <ChevronRight size={16} />
+                  </>
+                ) : (
+                  <>
+                    Continue to payment <ChevronRight size={16} />
+                  </>
+                )}
               </button>
-            )}
-
-            {step === 2 && (
+              {!canProceed() && (
+                <p className="text-xs text-center text-gray-400">
+                  Select a seat or toggle pay on bus to continue
+                </p>
+              )}
               <button
-                onClick={handleProceed}
-                className="w-full bg-brand-500 text-white py-3.5 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors flex items-center justify-center gap-2"
+                onClick={() =>
+                  currentLegIdx === 0
+                    ? navigate(-1)
+                    : setCurrentLegIdx((i) => i - 1)
+                }
+                className="w-full bg-white border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:border-brand-500 hover:text-brand-500 transition-colors flex items-center justify-center gap-2"
               >
-                Continue to payment
-                <ArrowRight size={16} />
+                <ChevronLeft size={16} />
+                {currentLegIdx === 0 ? "Back to results" : "Previous bus"}
               </button>
-            )}
+            </div>
+          </div>
+          {/* ══ END RIGHT COLUMN ══ */}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-            {step === 3 && (
-              <div className="space-y-3">
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <h3 className="font-bold text-sm text-gray-900 mb-3 flex items-center gap-2">
-                    <CreditCard size={15} className="text-brand-500" /> Payment
-                  </h3>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center text-sm text-gray-500 mb-3">
-                    💳 Secure online payment only
-                    <div className="text-xs text-gray-400 mt-1">
-                      Card payments accepted · Safe & encrypted
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold text-gray-900 mb-4">
-                    <span>Total to pay</span>
-                    <span className="text-brand-500">
-                      {totalPayable.toLocaleString()} LKR
+// ── Payment ───────────────────────────────────────────
+function PaymentStep({
+  legSelections,
+  passengers,
+  whatsapp,
+  setWhatsapp,
+  onlineFare,
+  serviceFee,
+  totalPayable,
+  cashFare,
+  servicePct,
+  result,
+  origin,
+  destination,
+  date,
+  onBack,
+  onConfirm,
+  submitting,
+  busTypeLabel,
+}) {
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Navbar />
+      <div className="max-w-2xl mx-auto px-4 py-10 w-full flex-1">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 bg-brand-50 border-2 border-brand-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <CreditCard size={24} className="text-brand-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">
+            Confirm & Pay
+          </h1>
+          <p className="text-sm text-gray-500">
+            {origin} → {destination} · {date} · {passengers.length} passenger
+            {passengers.length > 1 ? "s" : ""}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+          <h3 className="font-bold text-sm text-gray-900 mb-4">
+            Booking summary
+          </h3>
+          {legSelections.map((ls, i) => (
+            <div
+              key={i}
+              className={`rounded-xl p-4 mb-3 last:mb-0 ${ls.payOnBus && ls.selectedSeats.length === 0 ? "bg-orange-50 border border-orange-200" : "bg-brand-50 border border-brand-100"}`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="font-bold text-sm text-gray-900 flex items-center gap-2 mb-1">
+                    Bus {i + 1}: {ls.busData?.bus?.reg_number}
+                    <span className="text-xs font-normal bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                      {busTypeLabel[ls.busData?.bus?.bus_type]}
                     </span>
                   </div>
-                  <button
-                    onClick={handleBooking}
-                    disabled={submitting}
-                    className="w-full bg-brand-500 text-white py-3.5 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {submitting ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard size={16} /> Pay & Confirm Booking
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-gray-400 text-center mt-2">
-                    QR ticket sent to WhatsApp after payment
-                  </p>
+                  <div className="text-xs text-gray-500 mb-1">
+                    {ls.leg.board_stop_name} → {ls.leg.drop_stop_name} ·{" "}
+                    {ls.leg.board_time?.substring(0, 5)}
+                  </div>
+                  {ls.payOnBus && ls.selectedSeats.length === 0 ? (
+                    <div className="text-xs text-orange-600 font-semibold flex items-center gap-1">
+                      💵 Pay cash to conductor on boarding
+                    </div>
+                  ) : (
+                    <div className="text-xs text-brand-500 font-semibold flex items-center gap-1">
+                      <CheckCircle size={11} /> Seats:{" "}
+                      {ls.selectedSeats.map((s) => s.seat_number).join(", ")}
+                    </div>
+                  )}
                 </div>
+                <div className="text-right">
+                  <div className="font-extrabold text-gray-900">
+                    {(
+                      ls.selectedSeats.length * (ls.leg?.fare || 0)
+                    ).toLocaleString()}{" "}
+                    LKR
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {ls.payOnBus && ls.selectedSeats.length === 0
+                      ? "cash"
+                      : "online"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-                <button
-                  onClick={() => setStep(2)}
-                  className="w-full text-gray-500 text-sm py-2 hover:text-brand-500 transition-colors"
-                >
-                  ← Back to passenger details
-                </button>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+          <label className="block text-sm font-bold text-gray-900 mb-1">
+            WhatsApp for QR tickets *
+          </label>
+          <input
+            type="tel"
+            placeholder="+94 77 123 4567"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            className="w-full border-2 border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-brand-500 transition-colors"
+          />
+          <p className="text-xs text-gray-400 mt-2 flex items-start gap-1.5">
+            <Info size={12} className="flex-none mt-0.5 text-brand-500" />
+            Each bus gets its own QR. Conductors scan only their bus QR —
+            tracked per leg automatically.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4">
+          <h3 className="font-bold text-sm text-gray-900 mb-4">
+            Payment breakdown
+          </h3>
+          <div className="space-y-2.5 text-sm">
+            {onlineFare > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>
+                  Online fare ({passengers.length} passenger
+                  {passengers.length > 1 ? "s" : ""})
+                </span>
+                <span className="font-semibold">
+                  {onlineFare.toLocaleString()} LKR
+                </span>
               </div>
             )}
+            {cashFare > 0 && (
+              <div className="flex justify-between text-orange-500">
+                <span>Cash on bus (estimated)</span>
+                <span className="font-semibold">
+                  ~{cashFare.toLocaleString()} LKR
+                </span>
+              </div>
+            )}
+            {onlineFare > 0 && (
+              <div className="flex justify-between text-gray-500">
+                <span>Service fee ({(servicePct * 100).toFixed(0)}%)</span>
+                <span className="font-semibold">
+                  {serviceFee.toLocaleString()} LKR
+                </span>
+              </div>
+            )}
+            <div className="border-t border-gray-100 pt-3 flex justify-between">
+              <span className="font-bold text-gray-900">Pay online now</span>
+              <span className="font-extrabold text-brand-500 text-xl">
+                {totalPayable.toLocaleString()} LKR
+              </span>
+            </div>
           </div>
+          {cashFare > 0 && (
+            <div className="mt-4 bg-orange-50 rounded-xl p-3 text-xs text-orange-600 border border-orange-200">
+              ⚠️ Also pay ~{cashFare.toLocaleString()} LKR cash on the bus for
+              legs without online booking.
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={onConfirm}
+          disabled={submitting || !whatsapp}
+          className="w-full bg-brand-500 text-white py-4 rounded-2xl text-sm font-bold hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-200 mb-3"
+        >
+          {submitting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
+              Processing...
+            </>
+          ) : (
+            <>
+              <CreditCard size={16} /> Pay {totalPayable.toLocaleString()} LKR &
+              Confirm
+            </>
+          )}
+        </button>
+        <button
+          onClick={onBack}
+          className="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-2xl text-sm font-semibold hover:border-brand-500 hover:text-brand-500 transition-colors flex items-center justify-center gap-2"
+        >
+          <ChevronLeft size={16} /> Back to seat selection
+        </button>
+        <p className="text-xs text-gray-400 text-center mt-4">
+          🔒 Secure payment · QR tickets sent immediately
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Success ───────────────────────────────────────────
+function SuccessScreen({
+  bookingResult,
+  origin,
+  destination,
+  date,
+  passengers,
+  onGoHome,
+  onMyBookings,
+}) {
+  const handleDownloadPDF = async (booking) => {
+    try {
+      const res = await api.get(`/bookings/${booking.booking_id}/ticket-pdf`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(
+        new Blob([res.data], { type: "application/pdf" }),
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `SmartRouteLK-${booking.booking_id.substring(0, 8)}.pdf`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error("PDF download failed.");
+    }
+  };
+
+  const allCash = !bookingResult || bookingResult.length === 0;
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Navbar />
+      <div className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="max-w-lg w-full">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-8 text-center mb-4">
+            <div
+              className={`w-16 h-16 ${allCash ? "bg-orange-100" : "bg-green-100"} rounded-full flex items-center justify-center mx-auto mb-4`}
+            >
+              {allCash ? (
+                <span className="text-3xl">💵</span>
+              ) : (
+                <CheckCircle size={32} className="text-green-500" />
+              )}
+            </div>
+
+            <h1 className="text-2xl font-extrabold text-gray-900 mb-2">
+              {allCash ? "Journey Noted! 🚌" : "Booking Confirmed! 🎉"}
+            </h1>
+            <p className="text-sm text-gray-500 mb-1">
+              {origin} → {destination} · {date}
+            </p>
+
+            {allCash ? (
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 mb-6 text-left">
+                <div className="font-bold text-orange-600 mb-2 text-sm">
+                  💵 Pay cash on board
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  You've chosen to pay cash on all buses. No online payment was
+                  collected. Please board the bus and pay the conductor
+                  directly. Keep this page as a reference for your journey.
+                </p>
+                <div className="mt-3 text-xs text-gray-400">
+                  {origin} → {destination} · {date} · {passengers.length}{" "}
+                  passenger{passengers.length > 1 ? "s" : ""}
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-400 mb-6">
+                  QR tickets sent to your WhatsApp · Show to conductor when
+                  boarding
+                </p>
+                <div className="space-y-3 text-left mb-6">
+                  {bookingResult?.map((booking, i) => (
+                    <div
+                      key={i}
+                      className="bg-gray-50 border border-gray-100 rounded-xl p-4"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <div className="font-bold text-sm text-gray-900">
+                            Bus {i + 1}: {booking.bus}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            ID:{" "}
+                            {booking.booking_id.substring(0, 8).toUpperCase()}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDownloadPDF(booking)}
+                          className="flex items-center gap-1.5 bg-brand-50 border border-brand-200 text-brand-500 text-xs font-bold px-3 py-2 rounded-xl hover:bg-brand-100 transition-colors"
+                        >
+                          <Download size={13} /> PDF Ticket
+                        </button>
+                      </div>
+                      {booking.passengers?.map((p, j) => (
+                        <div
+                          key={j}
+                          className="flex items-center gap-2 mt-2 bg-white border border-gray-100 rounded-lg p-2"
+                        >
+                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-none text-xs font-bold text-gray-400">
+                            QR
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-gray-700">
+                              {p.passenger_name}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              Seat {p.seat_number} · Token:{" "}
+                              {p.qr_token?.substring(0, 8)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={onGoHome}
+                className="flex-1 bg-white border border-gray-200 text-gray-700 py-3 rounded-xl text-sm font-semibold hover:border-brand-500 hover:text-brand-500 transition-colors"
+              >
+                Go home
+              </button>
+              <button
+                onClick={onMyBookings}
+                className="flex-1 bg-brand-500 text-white py-3 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors"
+              >
+                My bookings
+              </button>
+            </div>
+          </div>
+          {!allCash && (
+            <p className="text-xs text-gray-400 text-center">
+              Each bus has its own QR · Conductors scan only their bus
+            </p>
+          )}
         </div>
       </div>
     </div>
