@@ -13,6 +13,7 @@ import MyBookingsPage from "./pages/passenger/MyBookingsPage";
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import AddBusPage from "./pages/owner/AddBusPage";
 import CompleteProfilePage from "./pages/CompleteProfilePage";
+import ProfilePage from "./pages/ProfilePage";
 
 // Protected route wrapper
 function ProtectedRoute({ children, role }) {
@@ -78,6 +79,31 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CompleteProfilePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/bookings"
+        element={
+          <ProtectedRoute>
+            <MyBookingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/owner"
+        element={
+          <ProtectedRoute role="owner">
+            <OwnerDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
           </ProtectedRoute>
         }
       />
