@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import ProfileBanner from "../ui/ProfileBanner";
 import {
   Menu,
   X,
@@ -189,6 +190,8 @@ export default function Navbar() {
           </button>
         </div>
       </nav>
+
+      <ProfileBanner />
 
       {/* Mobile menu */}
       <div

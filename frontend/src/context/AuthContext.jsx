@@ -61,6 +61,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const canBook = () => {
+    if (!user) return false;
+    return !!(user.whatsapp_number && user.gender);
+  };
+
   // ── Refresh user from backend ────────────────────
   // Call this after completing profile to update local state
   const refreshUser = async () => {
@@ -85,6 +90,7 @@ export function AuthProvider({ children }) {
         googleLogin,
         logout,
         refreshUser,
+        canBook,
       }}
     >
       {!loading && children}

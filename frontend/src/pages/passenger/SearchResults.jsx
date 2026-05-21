@@ -207,10 +207,20 @@ export default function SearchResults() {
     highway_luxury: "Luxury Highway",
   };
 
+  // const { user, canBook } = useAuth();
+
   const handleBook = (result) => {
     if (!localStorage.getItem("token")) {
       toast.error("Please sign in to book seats.");
       navigate("/login");
+      return;
+    }
+    // Check if profile has WhatsApp + gender
+    if (!user?.whatsapp_number || !user?.gender) {
+      toast.error("Please complete your profile to book seats.");
+      navigate(
+        `/complete-profile?redirect=/results?${searchParams.toString()}`,
+      );
       return;
     }
     navigate(`/seats/${result.legs[0].bus_id}`, {
