@@ -7,7 +7,6 @@ import api from "../../services/api";
 import {
   ArrowRight,
   Calendar,
-  MapPin,
   Clock,
   Download,
   ChevronDown,
@@ -71,8 +70,7 @@ export default function MyBookingsPage() {
   useEffect(() => {
     fetchBookings();
   }, []);
-
-  const fetchBookings = async () => {
+  async function fetchBookings() {
     setLoading(true);
     try {
       const res = await bookingAPI.getMyBookings();

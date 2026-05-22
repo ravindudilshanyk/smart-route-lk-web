@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 export default function SeatSelectPage() {
-  const { busId } = useParams();
+  useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
 
@@ -51,14 +51,17 @@ export default function SeatSelectPage() {
   const ls = legSelections[currentLegIdx];
 
   useEffect(() => {
+    // We intentionally only run this once on mount to validate incoming navigation state.
+    // Adding all dependencies here would cause repeated loads; loadLeg is used elsewhere
+    // and should be called explicitly when needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     if (!result || legs.length === 0) {
       navigate("/");
       return;
     }
     loadLeg(0);
   }, []);
-
-  const loadLeg = async (idx) => {
+  async function loadLeg(idx) {
     if (legSelections[idx]?.loaded) return;
     const l = legs[idx];
     try {
@@ -936,7 +939,7 @@ function PaymentStep({
   totalPayable,
   cashFare,
   servicePct,
-  result,
+  
   origin,
   destination,
   date,

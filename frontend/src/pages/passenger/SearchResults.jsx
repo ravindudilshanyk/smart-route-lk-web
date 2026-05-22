@@ -65,7 +65,7 @@ export default function SearchResults() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("best");
   const [showFilters, setShowFilters] = useState(false);
-  const [expanded, setExpanded] = useState({});
+  // expanded state removed (unused)
 
   const [filters, setFilters] = useState({
     time: { morning: true, afternoon: true, evening: true, night: true },
@@ -80,28 +80,30 @@ export default function SearchResults() {
   });
 
   useEffect(() => {
-    if (search.origin && search.destination && search.date) fetchResults();
-  }, []);
-
-  const fetchResults = async (overrides = {}) => {
-    const q = { ...search, ...overrides };
-    if (!q.origin || !q.destination || !q.date) return;
-    setLoading(true);
-    try {
-      const res = await searchAPI.search({
-        origin: q.origin,
-        destination: q.destination,
-        date: q.date,
-        time: q.time || undefined,
-      });
-      setResults(res.data.results || []);
-    } catch {
-      toast.error("Search failed. Please try again.");
-      setResults([]);
-    } finally {
-      setLoading(false);
+    async function fetchResults(overrides = {}) {
+      const q = { ...search, ...overrides };
+      if (!q.origin || !q.destination || !q.date) return;
+      setLoading(true);
+      try {
+        const res = await searchAPI.search({
+          origin: q.origin,
+          destination: q.destination,
+          date: q.date,
+          time: q.time || undefined,
+        });
+        setResults(res.data.results || []);
+      } catch {
+        toast.error("Search failed. Please try again.");
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
     }
-  };
+
+    if (search.origin && search.destination && search.date) {
+      fetchResults();
+    }
+  }, [search.origin, search.destination, search.date]);
 
   const handleSearch = () => {
     if (!search.origin || !search.destination || !search.date) {
@@ -211,16 +213,8 @@ export default function SearchResults() {
 
   const handleBook = (result) => {
     if (!localStorage.getItem("token")) {
-      toast.error("Please sign in to book seats.");
+      toast.error("Please sign in to book a seat.");
       navigate("/login");
-      return;
-    }
-    // Check if profile has WhatsApp + gender
-    if (!user?.whatsapp_number || !user?.gender) {
-      toast.error("Please complete your profile to book seats.");
-      navigate(
-        `/complete-profile?redirect=/results?${searchParams.toString()}`,
-      );
       return;
     }
     navigate(`/seats/${result.legs[0].bus_id}`, {

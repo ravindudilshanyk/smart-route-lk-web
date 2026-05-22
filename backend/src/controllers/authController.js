@@ -145,7 +145,7 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const result = await pool.query(
-      `SELECT id, first_name, last_name, nic, gender, whatsapp_number, 
+      `SELECT id, first_name, last_name, nic, gender, date_of_birth, whatsapp_number, 
               email, role, status, wallet_balance, loyalty_points, created_at
        FROM users WHERE id = $1`,
       [req.user.id],

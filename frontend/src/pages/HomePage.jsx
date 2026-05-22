@@ -464,7 +464,7 @@ export default function HomePage() {
                 ))}
               </div>
               <button
-                onClick={() => navigate("/register")}
+                onClick={() => navigate("/owner/apply")}
                 className="w-full bg-brand-500 text-white py-3 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors"
               >
                 Register your bus →

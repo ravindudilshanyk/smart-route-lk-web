@@ -2,11 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
-// Pages
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import SearchPage from "./pages/passenger/SearchPage";
 import SearchResults from "./pages/passenger/SearchResults";
 import SeatSelectPage from "./pages/passenger/SeatSelectPage";
 import MyBookingsPage from "./pages/passenger/MyBookingsPage";
@@ -14,8 +12,8 @@ import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import AddBusPage from "./pages/owner/AddBusPage";
 import CompleteProfilePage from "./pages/CompleteProfilePage";
 import ProfilePage from "./pages/ProfilePage";
+import ApplyOwnerPage from "./pages/owner/ApplyOwnerPage";
 
-// Protected route wrapper
 function ProtectedRoute({ children, role }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
@@ -28,14 +26,13 @@ function ProtectedRoute({ children, role }) {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public */}
+      {/* ── Public ── */}
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/search" element={<SearchPage />} />
       <Route path="/results" element={<SearchResults />} />
 
-      {/* Passenger protected */}
+      {/* ── Passenger ── */}
       <Route
         path="/seats/:busId"
         element={
@@ -52,8 +49,24 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/complete-profile"
+        element={
+          <ProtectedRoute>
+            <CompleteProfilePage />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Owner protected */}
+      {/* ── Owner ── */}
       <Route
         path="/owner"
         element={
@@ -70,43 +83,17 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/owner/apply"
+        element={
+          <ProtectedRoute>
+            <ApplyOwnerPage />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Fallback */}
+      {/* ── Fallback — must be LAST ── */}
       <Route path="*" element={<Navigate to="/" replace />} />
-
-      <Route
-        path="/complete-profile"
-        element={
-          <ProtectedRoute>
-            <CompleteProfilePage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/bookings"
-        element={
-          <ProtectedRoute>
-            <MyBookingsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/owner"
-        element={
-          <ProtectedRoute role="owner">
-            <OwnerDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <ProfilePage />
-          </ProtectedRoute>
-        }
-      />
     </Routes>
   );
 }

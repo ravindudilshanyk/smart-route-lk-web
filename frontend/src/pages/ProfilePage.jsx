@@ -14,8 +14,6 @@ import {
   Shield,
   ChevronRight,
   Bus,
-  CheckCircle,
-  Clock,
   Star,
   Edit3,
   Save,
@@ -23,7 +21,7 @@ import {
 } from "lucide-react";
 
 export default function ProfilePage() {
-  const { user, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +34,7 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
-  const fetchProfile = async () => {
+  async function fetchProfile() {
     setLoading(true);
     try {
       const res = await api.get("/auth/me");

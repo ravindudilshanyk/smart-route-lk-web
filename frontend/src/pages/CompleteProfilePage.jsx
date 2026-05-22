@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import toast from "react-hot-toast";
-import { CheckCircle, ArrowRight, Phone, User, Shield } from "lucide-react";
+import { CheckCircle, ArrowRight, Phone, Shield } from "lucide-react";
 
 export default function CompleteProfilePage() {
   const navigate = useNavigate();

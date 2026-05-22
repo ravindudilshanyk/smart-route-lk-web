@@ -8,7 +8,7 @@ function generateToken(user) {
     {
       id: user.id,
       role: user.role,
-      name: `${user.first_name} ${user.last_name}`,
+      name: `${user.first_name} ${user.last_name || ""}`,
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN },
@@ -16,15 +16,14 @@ function generateToken(user) {
 }
 
 async function googleAuth(req, res) {
-  // Frontend sends userInfo fetched from Google
-  const { email, given_name, family_name, sub: google_id } = req.body;
+  const { email, given_name, family_name, sub: google_id, name } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: "Google email is required." });
   }
 
   try {
-    // 1. Check if user already exists by email
+    // 1. Check if user exists by email
     const existing = await pool.query("SELECT * FROM users WHERE email = $1", [
       email,
     ]);
@@ -32,7 +31,7 @@ async function googleAuth(req, res) {
     if (existing.rows.length > 0) {
       const user = existing.rows[0];
 
-      // Check if profile is complete
+      // Profile is complete only if all required fields are filled
       const profileComplete = !!(
         user.nic &&
         user.whatsapp_number &&
@@ -41,7 +40,6 @@ async function googleAuth(req, res) {
       );
 
       const token = generateToken(user);
-
       return res.json({
         message: "Login successful.",
         token,
@@ -56,17 +54,20 @@ async function googleAuth(req, res) {
       });
     }
 
-    // 2. New user — create account with Google data
+    // 2. New Google user — create with partial data only
+    const firstName = given_name || (name ? name.split(" ")[0] : "User");
+    const lastName =
+      family_name || (name ? name.split(" ").slice(1).join(" ") : "");
+
     const randomPassword = uuidv4();
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(randomPassword, salt);
 
     const result = await pool.query(
-      `INSERT INTO users
-        (first_name, last_name, email, password_hash, role, status)
+      `INSERT INTO users (first_name, last_name, email, password_hash, role, status)
        VALUES ($1, $2, $3, $4, 'passenger', 'active')
        RETURNING id, first_name, last_name, email, role`,
-      [given_name || "User", family_name || "", email, password_hash],
+      [firstName, lastName, email, password_hash],
     );
 
     const newUser = result.rows[0];

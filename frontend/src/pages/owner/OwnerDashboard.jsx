@@ -15,8 +15,6 @@ import {
   Clock,
   AlertCircle,
   Download,
-  MapPin,
-  ArrowRight,
   BarChart3,
   Wifi,
   Wind,
@@ -46,11 +44,7 @@ export default function OwnerDashboard() {
     active_buses: 0,
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     try {
       const [busRes, ownerRes] = await Promise.all([
@@ -79,7 +73,12 @@ export default function OwnerDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    // Defer to next microtask to avoid synchronous setState inside effect
+    Promise.resolve().then(fetchData);
+  }, []);
 
   const handleDownloadReport = async (busId, regNumber) => {
     try {
