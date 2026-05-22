@@ -34,7 +34,14 @@
     "uuid": "^14.0.0",
     "winston": "^3.19.0"
   },
-  "devDependencies": {
-    "nodemon": "^3.1.14"
+    "devDependencies": {
+    "nodemon": "^3.1.14",
+    "node-pg-migrate": "^7.7.0"
+  },
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "migrate:up": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down"
   }
 }

@@ -57,16 +57,16 @@ jobs:
           APP_URL=http://localhost:5000
           EOF
 
+      - name: Run DB migrations
+        working-directory: backend
+        run: |
+          npm run migrate:up
+
       - name: Start backend
         working-directory: backend
         run: |
           npm run start &
           echo "Backend starting..."
-
-      - name: Initialize database schema
-        working-directory: backend
-        run: |
-          node src/scripts/init_db.js
 
       - name: Wait for backend
         run: |
