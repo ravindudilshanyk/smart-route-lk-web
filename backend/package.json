@@ -43,5 +43,6 @@
     "start": "node src/index.js",
     "migrate:up": "node-pg-migrate up",
     "migrate:down": "node-pg-migrate down"
+    ,"seed": "node src/scripts/seed_db.js"
   }
 }
