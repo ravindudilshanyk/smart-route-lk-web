@@ -13,30 +13,3 @@ body {
   background: #ffffff;
   color: #1a1a1a;
 }
-
-.themed-picker {
-  color-scheme: light;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.themed-picker::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  opacity: 0.85;
-  filter: invert(15%) sepia(83%) saturate(4145%) hue-rotate(347deg)
-    brightness(83%) contrast(107%);
-}
-
-.themed-picker::-webkit-datetime-edit {
-  padding: 0;
-}
-
-.themed-picker::-webkit-datetime-edit-text,
-.themed-picker::-webkit-datetime-edit-month-field,
-.themed-picker::-webkit-datetime-edit-day-field,
-.themed-picker::-webkit-datetime-edit-year-field,
-.themed-picker::-webkit-datetime-edit-hour-field,
-.themed-picker::-webkit-datetime-edit-minute-field,
-.themed-picker::-webkit-datetime-edit-ampm-field {
-  color: #334155;
-}

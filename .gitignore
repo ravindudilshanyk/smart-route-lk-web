@@ -1,8 +1,17 @@
-node_modules
+# Root
+node_modules/
 .env
-dist
-build
-coverage
 *.log
 .DS_Store
-.vscode
+Thumbs.db
+
+# Frontend
+frontend/dist/
+frontend/node_modules/
+frontend/.env.local
+frontend/.env.production
+
+# Backend
+backend/node_modules/
+backend/.env
+backend/uploads/
