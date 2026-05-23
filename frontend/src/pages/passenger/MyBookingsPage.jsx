@@ -80,7 +80,7 @@ export default function MyBookingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const fetchDetails = async (id) => {
     if (details[id]) {
@@ -345,7 +345,7 @@ export default function MyBookingsPage() {
                   </div>
 
                   {/* Expand toggle */}
-                  <button
+                  {/* <button
                     onClick={() => fetchDetails(booking.id)}
                     className="mt-3 flex items-center gap-1 text-xs text-gray-400 hover:text-brand-500 transition-colors font-semibold"
                   >
@@ -358,7 +358,29 @@ export default function MyBookingsPage() {
                         <ChevronDown size={13} /> View tickets & passengers
                       </>
                     )}
-                  </button>
+                  </button> */}
+                  <div className="mt-3 flex items-center justify-between">
+                    <button
+                      onClick={() => fetchDetails(booking.id)}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-brand-500 transition-colors font-semibold"
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp size={13} /> Hide details
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={13} /> View passengers
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => navigate(`/bookings/${booking.id}`)}
+                      className="text-xs text-brand-500 font-semibold hover:underline flex items-center gap-1"
+                    >
+                      Full details <ArrowRight size={12} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Expanded details */}

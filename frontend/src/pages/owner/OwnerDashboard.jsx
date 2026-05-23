@@ -338,6 +338,12 @@ export default function OwnerDashboard() {
                       >
                         <Settings size={13} /> Assign conductor
                       </button>
+                      <button
+                        onClick={() => navigate(`/owner/bus/${bus.id}/edit`)}
+                        className="flex items-center gap-1.5 bg-brand-50 border border-brand-200 text-brand-500 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-brand-100 transition-colors"
+                      >
+                        <Settings size={13} /> Manage
+                      </button>
                     </div>
                   </div>
                 </div>

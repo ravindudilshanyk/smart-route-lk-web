@@ -22,6 +22,8 @@ import BusDetailPage from "./pages/passenger/BusDetailPage";
 import PaymentPage from "./pages/PaymentPage";
 import PaymentSuccessPage from "./pages/PaymentSuccessPage";
 import TrackingPage from "./pages/TrackingPage";
+import BookingDetailPage from "./pages/passenger/BookingDetailPage";
+import EditBusPage from "./pages/owner/EditBusPage";
 
 function ProtectedRoute({ children, role }) {
   const { user } = useAuth();
@@ -144,6 +146,33 @@ function AppRoutes() {
         }
       />
       <Route path="*" element={<NotFoundPage />} />
+
+      <Route path="/buses/:id" element={<BusDetailPage />} />
+      <Route path="/track" element={<TrackingPage />} />
+      <Route
+        path="/payment"
+        element={
+          <ProtectedRoute>
+            <PaymentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/bookings/:id"
+        element={
+          <ProtectedRoute>
+            <BookingDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/owner/bus/:id/edit"
+        element={
+          <ProtectedRoute role="owner">
+            <EditBusPage />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }

@@ -41,8 +41,12 @@ export default function Navbar() {
             onClick={close}
             className="flex items-center gap-2 flex-none"
           >
-            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
-              <Bus size={16} color="white" />
+            <div className="w-10 h-10 bg-brand-500 bg-opacity-10 rounded-xl flex items-center justify-center">
+              <img
+                src="/bus.png"
+                alt="logo"
+                className="w-8 h-8 object-contain"
+              />
             </div>
             <span className="font-bold text-sm tracking-tight">
               Smart<span className="text-brand-500">Route</span>LK

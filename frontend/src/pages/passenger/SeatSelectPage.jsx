@@ -254,9 +254,11 @@ export default function SeatSelectPage() {
     }
     setSubmitting(true);
     try {
-      const bookingResults = [];
+      const bookingIds = [];
+      const legSummary = [];
+
       for (const ls of legSelections) {
-        if (ls.selectedSeats.length === 0) continue; // skip cash legs
+        if (ls.selectedSeats.length === 0) continue;
         const res = await api.post("/bookings", {
           bus_id: ls.leg.bus_id,
           travel_date: date,
@@ -274,10 +276,8 @@ export default function SeatSelectPage() {
               seat_id: ls.selectedSeats[i]?.id,
             })),
         });
-        bookingResults.push({
-          booking_id: res.data.booking_id,
-          bus: ls.busData?.bus?.reg_number,
-          passengers: res.data.passengers,
+        bookingIds.push(res.data.booking_id);
+        legSummary.push({
           reg_number: ls.busData?.bus?.reg_number,
           board_stop: ls.leg.board_stop_name,
           drop_stop: ls.leg.drop_stop_name,
@@ -285,20 +285,24 @@ export default function SeatSelectPage() {
           amount: ls.selectedSeats.length * (ls.leg?.fare || 0),
         });
       }
+
+      // If all cash — skip payment
+      if (bookingIds.length === 0) {
+        setBookingResult([]);
+        setStep("success");
+        return;
+      }
+
+      // Navigate to payment page
       navigate("/payment", {
         state: {
-          bookingIds: bookingResults.map((booking) => booking.booking_id),
+          bookingIds,
+          legSummary,
           totalPayable,
-          legSummary: bookingResults.map(
-            ({ reg_number, board_stop, drop_stop, seats, amount }) => ({
-              reg_number,
-              board_stop,
-              drop_stop,
-              seats,
-              amount,
-            }),
-          ),
           whatsapp,
+          origin,
+          destination,
+          date,
         },
       });
     } catch (err) {
@@ -961,7 +965,7 @@ function PaymentStep({
   totalPayable,
   cashFare,
   servicePct,
-  
+
   origin,
   destination,
   date,
@@ -1114,7 +1118,8 @@ function PaymentStep({
             </>
           ) : (
             <>
-              <CreditCard size={16} /> Pay {totalPayable.toLocaleString()} LKR & Confirm
+              <CreditCard size={16} /> Pay {totalPayable.toLocaleString()} LKR &
+              Confirm
             </>
           )}
         </button>
