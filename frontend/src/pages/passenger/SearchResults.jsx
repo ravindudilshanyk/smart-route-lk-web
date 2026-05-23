@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { searchAPI } from "../../services/api";
+import LocationAutocomplete from "../../components/search/LocationAutocomplete";
+import DatePickerField from "../../components/search/DatePickerField";
 import {
   ArrowRight,
   Clock,
@@ -16,8 +18,6 @@ import {
   Wifi,
   Wind,
   Droplets,
-  MapPin,
-  Calendar,
   Search,
   AlertCircle,
 } from "lucide-react";
@@ -79,8 +79,8 @@ export default function SearchResults() {
     },
   });
 
-  useEffect(() => {
-    async function fetchResults(overrides = {}) {
+  const fetchResults = useCallback(
+    async (overrides = {}) => {
       const q = { ...search, ...overrides };
       if (!q.origin || !q.destination || !q.date) return;
       setLoading(true);
@@ -98,12 +98,18 @@ export default function SearchResults() {
       } finally {
         setLoading(false);
       }
-    }
+    },
+    [search],
+  );
 
+  useEffect(() => {
     if (search.origin && search.destination && search.date) {
-      fetchResults();
+      const timer = setTimeout(() => {
+        void fetchResults();
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [search.origin, search.destination, search.date]);
+  }, [fetchResults, search.origin, search.destination, search.date]);
 
   const handleSearch = () => {
     if (!search.origin || !search.destination || !search.date) {
@@ -234,18 +240,15 @@ export default function SearchResults() {
       {/* ── Inline search bar ── */}
       <div className="bg-white border-b border-gray-100 shadow-sm sticky top-14 z-30">
         <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-brand-500 transition-colors bg-white">
-              <MapPin size={14} className="text-gray-400 flex-none" />
-              <input
-                type="text"
-                placeholder="From"
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <LocationAutocomplete
                 value={search.origin}
-                onChange={(e) =>
-                  setSearch((s) => ({ ...s, origin: e.target.value }))
-                }
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1 text-sm outline-none bg-transparent"
+                onChange={(value) => setSearch((s) => ({ ...s, origin: value }))}
+                onEnter={handleSearch}
+                placeholder="From"
+                iconTone="text-gray-400"
+                inputClassName="placeholder-gray-400"
               />
             </div>
             <button
@@ -261,33 +264,26 @@ export default function SearchResults() {
                 className="text-brand-500 group-hover:text-white transition-colors"
               />
             </button>
-            <div className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-brand-500 transition-colors bg-white">
-              <MapPin size={14} className="text-brand-500 flex-none" />
-              <input
-                type="text"
-                placeholder="To"
+            <div className="flex-1 min-w-0">
+              <LocationAutocomplete
                 value={search.destination}
-                onChange={(e) =>
-                  setSearch((s) => ({ ...s, destination: e.target.value }))
+                onChange={(value) =>
+                  setSearch((s) => ({ ...s, destination: value }))
                 }
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1 text-sm outline-none bg-transparent"
+                onEnter={handleSearch}
+                placeholder="To"
+                iconTone="text-brand-500"
               />
             </div>
-            <div className="flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-brand-500 transition-colors bg-white">
-              <Calendar size={14} className="text-gray-400 flex-none" />
-              <input
-                type="date"
+            <div className="flex-1 min-w-0">
+              <DatePickerField
                 value={search.date}
-                onChange={(e) =>
-                  setSearch((s) => ({ ...s, date: e.target.value }))
-                }
-                className="text-sm outline-none text-gray-600 bg-transparent"
+                onChange={(value) => setSearch((s) => ({ ...s, date: value }))}
               />
             </div>
             <button
               onClick={handleSearch}
-              className="bg-brand-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2 flex-none"
+              className="bg-brand-500 text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors flex items-center gap-2 flex-none"
             >
               <Search size={14} /> Search
             </button>

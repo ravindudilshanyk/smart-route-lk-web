@@ -18,6 +18,10 @@ import ConductorPage from "./pages/conductor/ConductorPage";
 import SearchPage from "./pages/passenger/SearchPage";
 import SupportPage from "./pages/SupportPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import BusDetailPage from "./pages/passenger/BusDetailPage";
+import PaymentPage from "./pages/PaymentPage";
+import PaymentSuccessPage from "./pages/PaymentSuccessPage";
+import TrackingPage from "./pages/TrackingPage";
 
 function ProtectedRoute({ children, role }) {
   const { user } = useAuth();
@@ -113,7 +117,32 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      // Replace the * fallback:
+      <Route path="/buses/:id" element={<BusDetailPage />} />
+      <Route path="/track" element={<TrackingPage />} />
+      <Route
+        path="/payment"
+        element={
+          <ProtectedRoute>
+            <PaymentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/payment/success"
+        element={
+          <ProtectedRoute>
+            <PaymentSuccessPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/payment/cancel"
+        element={
+          <ProtectedRoute>
+            <PaymentPage />
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

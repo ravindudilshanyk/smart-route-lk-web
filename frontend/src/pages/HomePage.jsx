@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import LocationAutocomplete from "../components/search/LocationAutocomplete";
+import DatePickerField from "../components/search/DatePickerField";
+import TimePickerField from "../components/search/TimePickerField";
 import {
-  MapPin,
-  Calendar,
-  Clock,
   Search,
   ArrowLeftRight,
   CheckCircle,
@@ -14,6 +15,7 @@ import {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [form, setForm] = useState({
     origin: "",
     destination: "",
@@ -161,18 +163,14 @@ export default function HomePage() {
 
           {/* Origin + Shuffle + Destination */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
-            <div className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-3 focus-within:border-brand-500 transition-colors">
-              <MapPin size={16} className="text-gray-400 flex-none" />
-              <input
-                type="text"
-                placeholder="From — Origin"
-                value={form.origin}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, origin: e.target.value }))
-                }
-                className="flex-1 text-sm outline-none placeholder-gray-400 bg-transparent font-medium"
-              />
-            </div>
+            <LocationAutocomplete
+              value={form.origin}
+              onChange={(value) => setForm((f) => ({ ...f, origin: value }))}
+              onEnter={handleSearch}
+              placeholder="From — Origin"
+              iconTone="text-gray-400"
+              inputClassName="placeholder-gray-400"
+            />
 
             <button
               onClick={handleShuffle}
@@ -188,44 +186,27 @@ export default function HomePage() {
               />
             </button>
 
-            <div className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-3 focus-within:border-brand-500 transition-colors">
-              <MapPin size={16} className="text-brand-500 flex-none" />
-              <input
-                type="text"
-                placeholder="To — Destination"
-                value={form.destination}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, destination: e.target.value }))
-                }
-                className="flex-1 text-sm outline-none placeholder-gray-400 bg-transparent font-medium"
-              />
-            </div>
+            <LocationAutocomplete
+              value={form.destination}
+              onChange={(value) =>
+                setForm((f) => ({ ...f, destination: value }))
+              }
+              onEnter={handleSearch}
+              placeholder="To — Destination"
+              iconTone="text-brand-500"
+            />
           </div>
 
           {/* Date + Time */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            <div className="flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-3 focus-within:border-brand-500 transition-colors">
-              <Calendar size={16} className="text-gray-400 flex-none" />
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, date: e.target.value }))
-                }
-                className="flex-1 text-sm outline-none text-gray-600 bg-transparent"
-              />
-            </div>
-            <div className="flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-3 focus-within:border-brand-500 transition-colors">
-              <Clock size={16} className="text-gray-400 flex-none" />
-              <input
-                type="time"
-                value={form.time}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, time: e.target.value }))
-                }
-                className="flex-1 text-sm outline-none text-gray-600 bg-transparent"
-              />
-            </div>
+            <DatePickerField
+              value={form.date}
+              onChange={(value) => setForm((f) => ({ ...f, date: value }))}
+            />
+            <TimePickerField
+              value={form.time}
+              onChange={(value) => setForm((f) => ({ ...f, time: value }))}
+            />
           </div>
 
           <button
@@ -464,7 +445,11 @@ export default function HomePage() {
                 ))}
               </div>
               <button
-                onClick={() => navigate("/owner/apply")}
+                onClick={() =>
+                  user?.role === "owner" || user?.role === "admin"
+                    ? navigate("/owner/add-bus")
+                    : navigate("/owner/apply")
+                }
                 className="w-full bg-brand-500 text-white py-3 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors"
               >
                 Register your bus →

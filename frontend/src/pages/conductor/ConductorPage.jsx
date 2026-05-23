@@ -1,7 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Navbar from "../../components/layout/Navbar";
-import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
 import toast from "react-hot-toast";
 import {
@@ -16,9 +14,6 @@ import {
 } from "lucide-react";
 
 export default function ConductorPage() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
   const [qrInput, setQrInput] = useState("");
   const [scanning, setScanning] = useState(false);
   const [lastResult, setLastResult] = useState(null);
@@ -28,13 +23,7 @@ export default function ConductorPage() {
   const [manualInput, setManualInput] = useState("");
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    fetchTodayData();
-    // Auto-focus the hidden QR input for scanner
-    if (inputRef.current) inputRef.current.focus();
-  }, []);
-
-  const fetchTodayData = async () => {
+  const fetchTodayData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/conductor/today");
@@ -45,7 +34,16 @@ export default function ConductorPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchTodayData();
+    }, 0);
+    // Auto-focus the hidden QR input for scanner
+    if (inputRef.current) inputRef.current.focus();
+    return () => clearTimeout(timer);
+  }, [fetchTodayData]);
 
   const validateQR = async (token) => {
     if (!token.trim()) return;

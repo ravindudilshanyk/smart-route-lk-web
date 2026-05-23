@@ -9,6 +9,32 @@ function calculateFare(bus, fromDistance, toDistance) {
   return Math.min(Math.max(Math.round(fare), min), max);
 }
 
+// ── STOP SUGGESTIONS ────────────────────────────────
+async function getStopSuggestions(req, res) {
+  const query = (req.query.q || "").trim();
+
+  if (!query) {
+    return res.json({ stops: [] });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT stop_name
+       FROM bus_stops
+       WHERE LOWER(stop_name) LIKE LOWER($1)
+       ORDER BY stop_name
+       LIMIT 12`,
+      [`%${query}%`],
+    );
+
+    return res.json({
+      stops: result.rows.map((row) => row.stop_name),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to load stop suggestions." });
+  }
+}
+
 // ── SEARCH BUSES ─────────────────────────────────────
 async function searchBuses(req, res) {
   const { origin, destination, date, time } = req.query;
@@ -318,4 +344,4 @@ function timeDiff(from, to) {
   return th * 60 + tm - (fh * 60 + fm);
 }
 
-module.exports = { searchBuses };
+module.exports = { searchBuses, getStopSuggestions };

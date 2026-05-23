@@ -37,6 +37,7 @@ export default function OwnerDashboard() {
   const [buses, setBuses] = useState([]);
   const [owner, setOwner] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [assigningBus, setAssigningBus] = useState(null);
   const [stats, setStats] = useState({
     total_buses: 0,
     total_bookings: 0,
@@ -326,16 +327,16 @@ export default function OwnerDashboard() {
                         <Download size={13} /> Report
                       </button>
                       <button
-                        onClick={() => navigate(`/owner/bus/${bus.id}`)}
+                        onClick={() => navigate(`/buses/${bus.id}`)}
                         className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 text-gray-600 text-xs font-semibold px-3 py-2 rounded-xl hover:border-brand-300 hover:text-brand-500 transition-colors"
                       >
                         <Eye size={13} /> View
                       </button>
                       <button
-                        onClick={() => navigate(`/owner/bus/${bus.id}/edit`)}
+                        onClick={() => setAssigningBus(bus)}
                         className="flex items-center gap-1.5 bg-brand-50 border border-brand-200 text-brand-500 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-brand-100 transition-colors"
                       >
-                        <Settings size={13} /> Manage
+                        <Settings size={13} /> Assign conductor
                       </button>
                     </div>
                   </div>
@@ -344,6 +345,14 @@ export default function OwnerDashboard() {
             </div>
           )}
         </div>
+
+        {assigningBus && (
+          <AssignConductorModal
+            bus={assigningBus}
+            onClose={() => setAssigningBus(null)}
+            onAssigned={fetchData}
+          />
+        )}
 
         {/* Quick tips if new owner */}
         {!loading && owner?.status === "verified" && buses.length === 0 && (
@@ -382,6 +391,73 @@ export default function OwnerDashboard() {
         )}
       </div>
       <Footer />
+    </div>
+  );
+}
+
+function AssignConductorModal({ bus, onClose, onAssigned }) {
+  const [whatsapp, setWhatsapp] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleAssign = async () => {
+    if (!whatsapp) {
+      toast.error("Enter WhatsApp number.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.post("/conductors/assign", {
+        bus_id: bus.id,
+        whatsapp_number: whatsapp,
+      });
+      toast.success(res.data.message);
+      onAssigned();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Assignment failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
+        <h3 className="font-bold text-gray-900 mb-1">Assign Conductor</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Bus <strong>{bus.reg_number}</strong> · {bus.route_name}
+        </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-700">
+          ⚠️ The conductor must already have a SmartRoute LK account. Their role
+          will be automatically upgraded to Conductor.
+        </div>
+        <label className="block text-xs font-semibold text-gray-600 mb-1">
+          Conductor's WhatsApp number *
+        </label>
+        <input
+          type="tel"
+          placeholder="+94 77 123 4567"
+          value={whatsapp}
+          onChange={(e) => setWhatsapp(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAssign()}
+          className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-brand-500 mb-4"
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:border-brand-300 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleAssign}
+            disabled={loading}
+            className="flex-1 bg-brand-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors disabled:opacity-50"
+          >
+            {loading ? "Assigning..." : "Assign conductor"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

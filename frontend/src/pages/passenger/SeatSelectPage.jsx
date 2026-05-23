@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/layout/Navbar";
 import { busAPI } from "../../services/api";
@@ -26,7 +26,7 @@ export default function SeatSelectPage() {
   const date = state?.date;
   const origin = state?.origin;
   const destination = state?.destination;
-  const legs = result?.legs || [];
+  const legs = useMemo(() => result?.legs || [], [result]);
 
   const [currentLegIdx, setCurrentLegIdx] = useState(0);
   const [legSelections, setLegSelections] = useState(
@@ -50,50 +50,53 @@ export default function SeatSelectPage() {
   const leg = legs[currentLegIdx];
   const ls = legSelections[currentLegIdx];
 
+  const loadLeg = useCallback(
+    async (idx) => {
+      if (!legs[idx]) return;
+      const l = legs[idx];
+      try {
+        const [busRes, availRes] = await Promise.all([
+          busAPI.getBusById(l.bus_id),
+          api
+            .get("/seats/availability", {
+              params: {
+                bus_id: l.bus_id,
+                travel_date: date,
+                board_stop_order: l.board_stop_order || 1,
+                drop_stop_order: l.drop_stop_order || 99,
+              },
+            })
+            .catch(() => ({ data: { availability: {} } })),
+        ]);
+        setLegSelections((prev) =>
+          prev.map((item, i) =>
+            i === idx
+              ? {
+                  ...item,
+                  busData: busRes.data,
+                  availability: availRes.data.availability || {},
+                  loaded: true,
+                }
+              : item,
+          ),
+        );
+      } catch {
+        toast.error("Failed to load bus layout.");
+      }
+    },
+    [date, legs],
+  );
+
   useEffect(() => {
-    // We intentionally only run this once on mount to validate incoming navigation state.
-    // Adding all dependencies here would cause repeated loads; loadLeg is used elsewhere
-    // and should be called explicitly when needed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     if (!result || legs.length === 0) {
       navigate("/");
       return;
     }
-    loadLeg(0);
-  }, []);
-  async function loadLeg(idx) {
-    if (legSelections[idx]?.loaded) return;
-    const l = legs[idx];
-    try {
-      const [busRes, availRes] = await Promise.all([
-        busAPI.getBusById(l.bus_id),
-        api
-          .get("/seats/availability", {
-            params: {
-              bus_id: l.bus_id,
-              travel_date: date,
-              board_stop_order: l.board_stop_order || 1,
-              drop_stop_order: l.drop_stop_order || 99,
-            },
-          })
-          .catch(() => ({ data: { availability: {} } })),
-      ]);
-      setLegSelections((prev) =>
-        prev.map((ls, i) =>
-          i === idx
-            ? {
-                ...ls,
-                busData: busRes.data,
-                availability: availRes.data.availability || {},
-                loaded: true,
-              }
-            : ls,
-        ),
-      );
-    } catch {
-      toast.error("Failed to load bus layout.");
-    }
-  };
+    const timer = setTimeout(() => {
+      void loadLeg(0);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [legs.length, loadLeg, navigate, result]);
 
   const getSeatStatus = (seat, availability) => {
     const info = availability?.[seat.id];
@@ -251,7 +254,7 @@ export default function SeatSelectPage() {
     }
     setSubmitting(true);
     try {
-      const bookingIds = [];
+      const bookingResults = [];
       for (const ls of legSelections) {
         if (ls.selectedSeats.length === 0) continue; // skip cash legs
         const res = await api.post("/bookings", {
@@ -271,14 +274,33 @@ export default function SeatSelectPage() {
               seat_id: ls.selectedSeats[i]?.id,
             })),
         });
-        bookingIds.push({
+        bookingResults.push({
           booking_id: res.data.booking_id,
           bus: ls.busData?.bus?.reg_number,
           passengers: res.data.passengers,
+          reg_number: ls.busData?.bus?.reg_number,
+          board_stop: ls.leg.board_stop_name,
+          drop_stop: ls.leg.drop_stop_name,
+          seats: ls.selectedSeats.length,
+          amount: ls.selectedSeats.length * (ls.leg?.fare || 0),
         });
       }
-      setBookingResult(bookingIds);
-      setStep("success");
+      navigate("/payment", {
+        state: {
+          bookingIds: bookingResults.map((booking) => booking.booking_id),
+          totalPayable,
+          legSummary: bookingResults.map(
+            ({ reg_number, board_stop, drop_stop, seats, amount }) => ({
+              reg_number,
+              board_stop,
+              drop_stop,
+              seats,
+              amount,
+            }),
+          ),
+          whatsapp,
+        },
+      });
     } catch (err) {
       toast.error(err.response?.data?.error || "Booking failed.");
     } finally {
@@ -1092,8 +1114,7 @@ function PaymentStep({
             </>
           ) : (
             <>
-              <CreditCard size={16} /> Pay {totalPayable.toLocaleString()} LKR &
-              Confirm
+              <CreditCard size={16} /> Pay {totalPayable.toLocaleString()} LKR & Confirm
             </>
           )}
         </button>

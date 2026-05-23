@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
-import { MapPin, Calendar, Clock, Search, ArrowLeftRight } from "lucide-react";
+import LocationAutocomplete from "../../components/search/LocationAutocomplete";
+import DatePickerField from "../../components/search/DatePickerField";
+import TimePickerField from "../../components/search/TimePickerField";
+import { Search, ArrowLeftRight } from "lucide-react";
 
 const POPULAR = [
   { from: "Colombo Fort", to: "Kandy" },
@@ -87,17 +90,14 @@ export default function SearchPage() {
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 mb-8">
           {/* Origin + Shuffle + Destination */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
-            <div className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-3 focus-within:border-brand-500 transition-colors">
-              <MapPin size={16} className="text-gray-400 flex-none" />
-              <input
-                type="text"
-                placeholder="From — Origin city or stop"
-                value={form.origin}
-                onChange={(e) => set("origin", e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1 text-sm outline-none bg-transparent"
-              />
-            </div>
+            <LocationAutocomplete
+              value={form.origin}
+              onChange={(value) => set("origin", value)}
+              onEnter={handleSearch}
+              placeholder="From — Origin city or stop"
+              iconTone="text-gray-400"
+              inputClassName="placeholder-gray-400"
+            />
             <button
               onClick={handleShuffle}
               className="w-10 h-10 flex-none rounded-full border-2 border-brand-500 flex items-center justify-center hover:bg-brand-500 group transition-all mx-auto"
@@ -111,40 +111,19 @@ export default function SearchPage() {
                 className="text-brand-500 group-hover:text-white transition-colors"
               />
             </button>
-            <div className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-3 focus-within:border-brand-500 transition-colors">
-              <MapPin size={16} className="text-brand-500 flex-none" />
-              <input
-                type="text"
-                placeholder="To — Destination"
-                value={form.destination}
-                onChange={(e) => set("destination", e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1 text-sm outline-none bg-transparent"
-              />
-            </div>
+            <LocationAutocomplete
+              value={form.destination}
+              onChange={(value) => set("destination", value)}
+              onEnter={handleSearch}
+              placeholder="To — Destination"
+              iconTone="text-brand-500"
+            />
           </div>
 
           {/* Date + Time */}
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-3 focus-within:border-brand-500 transition-colors">
-              <Calendar size={15} className="text-gray-400 flex-none" />
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => set("date", e.target.value)}
-                className="flex-1 text-sm outline-none text-gray-600 bg-transparent"
-              />
-            </div>
-            <div className="flex items-center gap-2 border-2 border-gray-200 rounded-xl px-3 py-3 focus-within:border-brand-500 transition-colors">
-              <Clock size={15} className="text-gray-400 flex-none" />
-              <input
-                type="time"
-                value={form.time}
-                onChange={(e) => set("time", e.target.value)}
-                className="flex-1 text-sm outline-none text-gray-600 bg-transparent"
-              />
-              <span className="text-xs text-gray-400">optional</span>
-            </div>
+            <DatePickerField value={form.date} onChange={(value) => set("date", value)} />
+            <TimePickerField value={form.time} onChange={(value) => set("time", value)} />
           </div>
 
           <button

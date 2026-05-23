@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
 import toast from "react-hot-toast";
@@ -85,31 +85,9 @@ export default function ApplyOwnerPage() {
     }
   };
 
-  // Already an owner
-  if (user?.role === "owner") {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center max-w-md w-full">
-            <CheckCircle size={40} className="text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
-              You're already an owner
-            </h2>
-            <p className="text-sm text-gray-500 mb-6">
-              Your owner account is active. Go to your dashboard to manage
-              buses.
-            </p>
-            <button
-              onClick={() => navigate("/owner")}
-              className="w-full bg-brand-500 text-white py-3 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors"
-            >
-              Go to Owner Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  // If already an owner or admin, redirect to dashboard
+  if (user?.role === "owner" || user?.role === "admin") {
+    return <Navigate to="/owner" replace />;
   }
 
   // Success screen
