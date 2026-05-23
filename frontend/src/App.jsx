@@ -13,6 +13,11 @@ import AddBusPage from "./pages/owner/AddBusPage";
 import CompleteProfilePage from "./pages/CompleteProfilePage";
 import ProfilePage from "./pages/ProfilePage";
 import ApplyOwnerPage from "./pages/owner/ApplyOwnerPage";
+import AdminPanel from "./pages/admin/AdminPanel";
+import ConductorPage from "./pages/conductor/ConductorPage";
+import SearchPage from "./pages/passenger/SearchPage";
+import SupportPage from "./pages/SupportPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 function ProtectedRoute({ children, role }) {
   const { user } = useAuth();
@@ -31,7 +36,6 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/results" element={<SearchResults />} />
-
       {/* ── Passenger ── */}
       <Route
         path="/seats/:busId"
@@ -65,7 +69,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
       {/* ── Owner ── */}
       <Route
         path="/owner"
@@ -91,9 +94,27 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
       {/* ── Fallback — must be LAST ── */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/search" element={<SearchPage />} />
+      <Route path="/support" element={<SupportPage />} />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminPanel />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/conductor"
+        element={
+          <ProtectedRoute role="conductor">
+            <ConductorPage />
+          </ProtectedRoute>
+        }
+      />
+      // Replace the * fallback:
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

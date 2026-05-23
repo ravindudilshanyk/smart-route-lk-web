@@ -7,6 +7,8 @@ const searchRoutes = require("./routes/search");
 const bookingRoutes = require("./routes/bookings");
 const userRoutes = require("./routes/users");
 const seatRoutes = require("./routes/seats");
+const adminRoutes = require("./routes/admin");
+const conductorRoutes = require("./routes/conductor");
 
 const express = require("express");
 const http = require("http");
@@ -34,6 +36,8 @@ app.use("/api/search", searchRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/seats", seatRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/conductor", conductorRoutes);
 
 // ── Health check route ──────────────────────────────
 app.get("/health", (req, res) => {

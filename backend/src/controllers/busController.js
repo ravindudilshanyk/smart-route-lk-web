@@ -1,7 +1,32 @@
 const { pool } = require("../config/db");
 
+async function getVerifiedOwnerId(userId) {
+  const ownerResult = await pool.query(
+    "SELECT id, status FROM bus_owners WHERE user_id = $1",
+    [userId],
+  );
+
+  if (ownerResult.rows.length === 0) {
+    return { error: "You must be a verified owner." };
+  }
+
+  const owner = ownerResult.rows[0];
+
+  if (owner.status !== "verified") {
+    return { error: "You must be a verified owner." };
+  }
+
+  return { ownerId: owner.id };
+}
+
 // ── ADD BUS ──────────────────────────────────────────
 async function addBus(req, res) {
+  const ownerLookup = await getVerifiedOwnerId(req.user.id);
+  if (ownerLookup.error) {
+    return res.status(403).json({ error: ownerLookup.error });
+  }
+  const owner_id = ownerLookup.ownerId;
+
   const {
     reg_number,
     bus_type,
@@ -10,94 +35,36 @@ async function addBus(req, res) {
     departure_time,
     arrival_time,
     operating_days,
-    gps_device_id,
+    has_ac,
+    has_wifi,
+    has_water,
     price_per_km,
     min_fare,
     max_fare,
     refund_pct_before,
     refund_hours_threshold,
     refund_pct_within,
-    has_ac,
-    has_wifi,
-    has_water,
-    stops, // array of stop objects
-    seat_layout, // object with rows, cols, aisle_col, seats array
+    stops,
+    layout,
   } = req.body;
 
-  const userId = req.user.id;
-
-  // Validate required fields
-  if (
-    !reg_number ||
-    !bus_type ||
-    !route_number ||
-    !route_name ||
-    !departure_time ||
-    !arrival_time ||
-    !operating_days ||
-    !price_per_km ||
-    !max_fare
-  ) {
-    return res.status(400).json({ error: "Missing required bus fields." });
-  }
-
-  if (!stops || stops.length < 2) {
-    return res.status(400).json({ error: "At least 2 stops are required." });
-  }
-
-  if (!seat_layout || !seat_layout.seats || seat_layout.seats.length === 0) {
-    return res.status(400).json({ error: "Seat layout is required." });
-  }
-
-  // Use a transaction — if anything fails, everything rolls back
   const client = await pool.connect();
-
   try {
     await client.query("BEGIN");
 
-    // 1. Get owner profile id
-    const ownerResult = await client.query(
-      "SELECT id, status FROM bus_owners WHERE user_id = $1",
-      [userId],
-    );
-
-    if (ownerResult.rows.length === 0) {
-      return res.status(403).json({ error: "Owner profile not found." });
-    }
-
-    const owner = ownerResult.rows[0];
-
-    if (owner.status !== "verified") {
-      return res.status(403).json({
-        error:
-          "Your owner account is not verified yet. Please wait for admin approval.",
-      });
-    }
-
-    // 2. Check reg number not already used
-    const regCheck = await client.query(
-      "SELECT id FROM buses WHERE reg_number = $1",
-      [reg_number],
-    );
-    if (regCheck.rows.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "Bus registration number already exists." });
-    }
-
-    // 3. Insert the bus
+    // 1. Create bus
     const busResult = await client.query(
       `INSERT INTO buses (
         owner_id, reg_number, bus_type, route_number, route_name,
-        departure_time, arrival_time, operating_days, gps_device_id,
+        departure_time, arrival_time, operating_days,
+        has_ac, has_wifi, has_water,
         price_per_km, min_fare, max_fare,
         refund_pct_before, refund_hours_threshold, refund_pct_within,
-        has_ac, has_wifi, has_water
-      ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
-      ) RETURNING id`,
+        status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'active')
+      RETURNING id`,
       [
-        owner.id,
+        owner_id,
         reg_number,
         bus_type,
         route_number,
@@ -105,74 +72,65 @@ async function addBus(req, res) {
         departure_time,
         arrival_time,
         operating_days,
-        gps_device_id || null,
+        has_ac || false,
+        has_wifi || false,
+        has_water || false,
         price_per_km,
-        min_fare || 50,
+        min_fare,
         max_fare,
         refund_pct_before || 100,
         refund_hours_threshold || 24,
         refund_pct_within || 50,
-        has_ac || false,
-        has_wifi || false,
-        has_water || false,
       ],
     );
+    const bus_id = busResult.rows[0].id;
 
-    const busId = busResult.rows[0].id;
-
-    // 4. Insert stops
+    // 2. Create stops
     for (const stop of stops) {
       await client.query(
-        `INSERT INTO bus_stops 
-          (bus_id, stop_name, stop_order, estimated_time, distance_from_start_km)
+        `INSERT INTO bus_stops (bus_id, stop_name, stop_order, estimated_time, distance_from_start_km)
          VALUES ($1, $2, $3, $4, $5)`,
         [
-          busId,
+          bus_id,
           stop.stop_name,
           stop.stop_order,
           stop.estimated_time,
-          stop.distance_from_start_km || null,
+          stop.distance_from_start_km,
         ],
       );
     }
 
-    // 5. Insert seat layout
+    // 3. Create seat layout
     const layoutResult = await client.query(
       `INSERT INTO seat_layouts (bus_id, rows, cols, aisle_col)
        VALUES ($1, $2, $3, $4) RETURNING id`,
-      [busId, seat_layout.rows, seat_layout.cols, seat_layout.aisle_col || 2],
+      [bus_id, layout.rows, layout.cols, layout.aisle_col],
     );
+    const layout_id = layoutResult.rows[0].id;
 
-    const layoutId = layoutResult.rows[0].id;
-
-    // 6. Insert individual seats
-    for (const seat of seat_layout.seats) {
-      await client.query(
-        `INSERT INTO seats (layout_id, seat_number, row_index, col_index, is_active)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [
-          layoutId,
-          seat.seat_number,
-          seat.row_index,
-          seat.col_index,
-          seat.is_active !== false, // default true
-        ],
-      );
+    // 4. Generate seats automatically
+    let seatNum = 1;
+    for (let row = 1; row <= layout.rows; row++) {
+      for (let col = 0; col < layout.cols; col++) {
+        if (col === layout.aisle_col) continue; // skip aisle
+        await client.query(
+          `INSERT INTO seats (layout_id, seat_number, row_index, col_index)
+           VALUES ($1, $2, $3, $4)`,
+          [layout_id, String(seatNum++).padStart(2, "0"), row, col],
+        );
+      }
     }
 
-    // 7. Commit everything
     await client.query("COMMIT");
-
     res.status(201).json({
       message: "Bus added successfully.",
-      bus_id: busId,
-      stops_added: stops.length,
-      seats_added: seat_layout.seats.length,
+      bus_id,
+      seat_count: seatNum - 1,
     });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Add bus error:", err.message);
-    res.status(500).json({ error: "Server error while adding bus." });
+    console.error("Create bus error:", err.message);
+    res.status(500).json({ error: "Failed to create bus." });
   } finally {
     client.release();
   }
@@ -181,13 +139,9 @@ async function addBus(req, res) {
 // ── GET ALL BUSES FOR OWNER ──────────────────────────
 async function getMyBuses(req, res) {
   try {
-    const ownerResult = await pool.query(
-      "SELECT id FROM bus_owners WHERE user_id = $1",
-      [req.user.id],
-    );
-
-    if (ownerResult.rows.length === 0) {
-      return res.status(404).json({ error: "Owner profile not found." });
+    const ownerLookup = await getVerifiedOwnerId(req.user.id);
+    if (ownerLookup.error) {
+      return res.status(403).json({ error: ownerLookup.error });
     }
 
     const buses = await pool.query(
@@ -201,7 +155,7 @@ async function getMyBuses(req, res) {
        WHERE b.owner_id = $1
        GROUP BY b.id
        ORDER BY b.created_at DESC`,
-      [ownerResult.rows[0].id],
+      [ownerLookup.ownerId],
     );
 
     res.json({ buses: buses.rows });
