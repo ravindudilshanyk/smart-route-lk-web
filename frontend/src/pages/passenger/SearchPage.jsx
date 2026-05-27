@@ -94,7 +94,7 @@ export default function SearchPage() {
               value={form.origin}
               onChange={(value) => set("origin", value)}
               onEnter={handleSearch}
-              placeholder="From — Origin city or stop"
+              placeholder="From - Origin city or stop"
               iconTone="text-gray-400"
               inputClassName="placeholder-gray-400"
             />
@@ -115,7 +115,7 @@ export default function SearchPage() {
               value={form.destination}
               onChange={(value) => set("destination", value)}
               onEnter={handleSearch}
-              placeholder="To — Destination"
+              placeholder="To - Destination"
               iconTone="text-brand-500"
             />
           </div>

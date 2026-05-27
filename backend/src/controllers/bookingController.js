@@ -3,7 +3,7 @@ const QRCode = require("qrcode");
 const path = require("path");
 const fs = require("fs");
 
-// ── Helper — generate QR code image ─────────────────
+// ── Helper - generate QR code image ─────────────────
 async function generateQR(token, bookingId) {
   const dir = "generated/qrcodes";
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -11,7 +11,6 @@ async function generateQR(token, bookingId) {
   const filename = `${token}.png`;
   const filepath = path.join(dir, filename);
 
-  // QR contains a verification URL the conductor app will scan
   const qrData = JSON.stringify({
     token,
     booking_id: bookingId,
@@ -27,7 +26,7 @@ async function generateQR(token, bookingId) {
   return `generated/qrcodes/${filename}`;
 }
 
-// ── Helper — calculate segment fare ─────────────────
+// ── Helper - calculate segment fare ─────────────────
 function calcFare(pricePerKm, minFare, maxFare, fromDist, toDist) {
   const dist = Math.abs(parseFloat(toDist) - parseFloat(fromDist));
   const fare = dist * parseFloat(pricePerKm);
@@ -52,12 +51,11 @@ async function createBooking(req, res) {
     drop_stop_id,
     whatsapp_number,
     payment_method,
-    passengers, // array: [{ passenger_name, nic, gender, seat_id }]
+    passengers,
   } = req.body;
 
   const userId = req.user.id;
 
-  // Basic validation
   if (
     !bus_id ||
     !travel_date ||
@@ -104,12 +102,12 @@ async function createBooking(req, res) {
     const drop = dropStop.rows[0];
 
     if (board.stop_order >= drop.stop_order) {
-      return res
-        .status(400)
-        .json({ error: "Board stop must come before drop stop." });
+      return res.status(400).json({
+        error: "Board stop must come before drop stop.",
+      });
     }
 
-    // 3. Check each seat is available for this segment
+    // 3. Check each seat availability
     for (const p of passengers) {
       // Verify seat belongs to this bus
       const seatCheck = await client.query(
@@ -120,11 +118,18 @@ async function createBooking(req, res) {
       );
       if (seatCheck.rows.length === 0) {
         return res.status(400).json({
-          error: `Seat ${p.seat_id} is not valid for this bus.`,
+          error: `Seat is not valid for this bus.`,
         });
       }
 
-      // Check seat not already booked for overlapping segment
+      // ── Get seat number BEFORE conflict check ──────
+      const seatInfo = await client.query(
+        "SELECT seat_number FROM seats WHERE id = $1",
+        [p.seat_id],
+      );
+      const seatNumber = seatInfo.rows[0].seat_number;
+
+      // ── Conflict check ─────────────────────────────
       const conflictCheck = await client.query(
         `SELECT id FROM seat_availability
          WHERE seat_id = $1
@@ -133,10 +138,18 @@ async function createBooking(req, res) {
            AND drop_stop_order  > $3`,
         [p.seat_id, travel_date, board.stop_order, drop.stop_order],
       );
+
       if (conflictCheck.rows.length > 0) {
-        return res.status(400).json({
-          error: `Seat is already booked for this segment. Please choose another seat.`,
-        });
+        // If passenger accepted partial seating — allow it
+        if (!p.accept_partial_seat) {
+          return res.status(409).json({
+            error: "partial_conflict",
+            message:
+              "This seat is partially occupied. You may sit here but must move at a stop.",
+            seat_number: seatNumber,
+          });
+        }
+        // accept_partial_seat = true → fall through and allow booking
       }
     }
 
@@ -150,7 +163,7 @@ async function createBooking(req, res) {
     );
     const totalFare = farePerSeat * passengers.length;
 
-    // 5. Create the booking
+    // 5. Create the booking record
     const bookingResult = await client.query(
       `INSERT INTO bookings
         (bus_id, booked_by, travel_date, board_stop_id, drop_stop_id,
@@ -170,11 +183,11 @@ async function createBooking(req, res) {
     );
     const bookingId = bookingResult.rows[0].id;
 
-    // 6. Create booking passengers + seat availability + QR codes
+    // 6. Create passengers + seat availability + QR codes
     const createdPassengers = [];
 
     for (const p of passengers) {
-      // Get seat number for display
+      // Get seat number
       const seatInfo = await client.query(
         "SELECT seat_number FROM seats WHERE id = $1",
         [p.seat_id],
@@ -209,7 +222,7 @@ async function createBooking(req, res) {
         [qrUrl, bp.id],
       );
 
-      // Lock the seat for this segment
+      // Lock seat for this segment in seat_availability
       await client.query(
         `INSERT INTO seat_availability
           (seat_id, travel_date, board_stop_order, drop_stop_order, booking_passenger_id)
@@ -227,7 +240,7 @@ async function createBooking(req, res) {
       });
     }
 
-    // 7. Commit everything
+    // 7. Commit
     await client.query("COMMIT");
 
     res.status(201).json({
@@ -257,20 +270,20 @@ async function getMyBookings(req, res) {
         b.id, b.travel_date, b.total_fare, b.booking_status,
         b.payment_method, b.payment_status, b.created_at,
         bus.route_name, bus.reg_number, bus.bus_type,
-        s_board.stop_name AS board_stop,
-        s_board.estimated_time AS board_time,
-        s_drop.stop_name  AS drop_stop,
-        s_drop.estimated_time  AS drop_time,
-        COUNT(bp.id) AS passenger_count
+        s_board.stop_name        AS board_stop,
+        s_board.estimated_time   AS board_time,
+        s_drop.stop_name         AS drop_stop,
+        s_drop.estimated_time    AS drop_time,
+        COUNT(bp.id)             AS passenger_count
        FROM bookings b
-       JOIN buses     bus     ON bus.id     = b.bus_id
-       JOIN bus_stops s_board ON s_board.id = b.board_stop_id
-       JOIN bus_stops s_drop  ON s_drop.id  = b.drop_stop_id
-       JOIN booking_passengers bp ON bp.booking_id = b.id
+       JOIN buses              bus     ON bus.id     = b.bus_id
+       JOIN bus_stops          s_board ON s_board.id = b.board_stop_id
+       JOIN bus_stops          s_drop  ON s_drop.id  = b.drop_stop_id
+       JOIN booking_passengers bp      ON bp.booking_id = b.id
        WHERE b.booked_by = $1
        GROUP BY b.id, bus.route_name, bus.reg_number, bus.bus_type,
                 s_board.stop_name, s_board.estimated_time,
-                s_drop.stop_name, s_drop.estimated_time
+                s_drop.stop_name,  s_drop.estimated_time
        ORDER BY b.created_at DESC`,
       [req.user.id],
     );
@@ -287,14 +300,13 @@ async function getBookingById(req, res) {
   const { id } = req.params;
 
   try {
-    // Get booking
     const bookingResult = await pool.query(
-      `SELECT b.*, 
+      `SELECT b.*,
         bus.route_name, bus.reg_number, bus.bus_type,
         bus.has_ac, bus.has_wifi, bus.has_water,
-        s_board.stop_name AS board_stop_name,
+        s_board.stop_name      AS board_stop_name,
         s_board.estimated_time AS board_time,
-        s_drop.stop_name  AS drop_stop_name,
+        s_drop.stop_name       AS drop_stop_name,
         s_drop.estimated_time  AS drop_time
        FROM bookings b
        JOIN buses     bus     ON bus.id     = b.bus_id
@@ -308,7 +320,6 @@ async function getBookingById(req, res) {
       return res.status(404).json({ error: "Booking not found." });
     }
 
-    // Get passengers with QR codes
     const passengersResult = await pool.query(
       `SELECT id, passenger_name, nic, gender,
               seat_number, fare, qr_token, qr_code_url,
@@ -336,10 +347,9 @@ async function cancelBooking(req, res) {
   try {
     await client.query("BEGIN");
 
-    // Get booking with bus refund policy
     const result = await client.query(
-      `SELECT b.*, bus.refund_pct_before, bus.refund_hours_threshold, bus.refund_pct_within,
-              bus.departure_time
+      `SELECT b.*, bus.refund_pct_before, bus.refund_hours_threshold,
+              bus.refund_pct_within, bus.departure_time
        FROM bookings b
        JOIN buses bus ON bus.id = b.bus_id
        WHERE b.id = $1 AND b.booked_by = $2`,
@@ -361,7 +371,6 @@ async function cancelBooking(req, res) {
         .json({ error: "Cannot cancel a completed booking." });
     }
 
-    // Calculate refund based on policy
     const now = new Date();
     const departure = new Date(
       `${booking.travel_date.toISOString().split("T")[0]}T${booking.departure_time}`,
@@ -377,7 +386,6 @@ async function cancelBooking(req, res) {
 
     const refundAmount = (booking.total_fare * refundPct) / 100;
 
-    // Update booking status
     await client.query(
       `UPDATE bookings
        SET booking_status = 'cancelled', cancelled_at = NOW(), refund_amount = $1
@@ -385,7 +393,6 @@ async function cancelBooking(req, res) {
       [refundAmount, id],
     );
 
-    // Release seats — delete from seat_availability
     await client.query(
       `DELETE FROM seat_availability
        WHERE booking_passenger_id IN (
@@ -402,7 +409,7 @@ async function cancelBooking(req, res) {
       refund_pct: refundPct,
       note:
         refundPct === 0
-          ? "No refund — bus has already departed or refund window passed."
+          ? "No refund - bus has already departed or refund window passed."
           : `${refundPct}% refund of ${refundAmount} LKR will be processed.`,
     });
   } catch (err) {

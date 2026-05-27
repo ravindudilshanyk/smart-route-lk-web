@@ -658,7 +658,7 @@ function ResultCard({
 
           <div className="px-5 py-4">
             <div className="flex items-start gap-4">
-              {/* Left — bus info + timeline */}
+              {/* Left - bus info + timeline */}
               <div className="flex-1 min-w-0">
                 {/* Badges row */}
                 <div className="flex flex-wrap items-center gap-1.5 mb-3">
@@ -743,7 +743,7 @@ function ResultCard({
                 </div>
               </div>
 
-              {/* Right — fare */}
+              {/* Right - fare */}
               <div className="flex-none text-right border-l border-gray-100 pl-4 flex flex-col items-end justify-between min-h-16">
                 <div>
                   <div className="text-xl font-extrabold text-brand-500 leading-none">
@@ -757,7 +757,7 @@ function ResultCard({
         </div>
       ))}
 
-      {/* Bottom action row — full width */}
+      {/* Bottom action row - full width */}
       <div
         className={`px-5 py-3 flex items-center justify-between border-t ${
           isDirect

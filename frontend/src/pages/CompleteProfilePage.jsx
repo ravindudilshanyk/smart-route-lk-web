@@ -195,7 +195,7 @@ export default function CompleteProfilePage() {
             </p>
           </div>
 
-          {/* Step 1 — WhatsApp + gender */}
+          {/* Step 1 - WhatsApp + gender */}
           {step === 1 && (
             <form onSubmit={handleStep1} className="space-y-4">
               <div>
@@ -268,17 +268,17 @@ export default function CompleteProfilePage() {
                 onClick={() => navigate("/")}
                 className="w-full text-gray-400 text-xs py-2 hover:text-gray-600 transition-colors"
               >
-                Skip for now — I'll complete later
+                Skip for now - I'll complete later
               </button>
             </form>
           )}
 
-          {/* Step 2 — NIC + DOB (optional) */}
+          {/* Step 2 - NIC + DOB (optional) */}
           {step === 2 && (
             <form onSubmit={handleStep2} className="space-y-4">
               {/* Success of step 1 */}
               <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2 text-sm text-green-600 font-semibold mb-2">
-                <CheckCircle size={16} /> WhatsApp and gender saved — you can
+                <CheckCircle size={16} /> WhatsApp and gender saved - you can
                 now book seats!
               </div>
 
@@ -337,7 +337,7 @@ export default function CompleteProfilePage() {
                 onClick={() => navigate(redirectTo)}
                 className="w-full text-gray-400 text-xs py-2 hover:text-gray-600 transition-colors"
               >
-                Skip — continue to{" "}
+                Skip - continue to{" "}
                 {redirectTo === "/" ? "home" : "my destination"}
               </button>
             </form>

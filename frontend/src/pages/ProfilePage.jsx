@@ -187,7 +187,7 @@ export default function ProfilePage() {
                   NIC Number
                 </div>
                 <div className="text-sm font-semibold text-gray-900 font-mono">
-                  {profile?.nic || "—"}
+                  {profile?.nic || "-"}
                 </div>
               </div>
               <div>
@@ -199,7 +199,7 @@ export default function ProfilePage() {
                     ? new Date(profile.date_of_birth).toLocaleDateString(
                         "en-LK",
                       )
-                    : "—"}
+                    : "-"}
                 </div>
               </div>
               <div>
@@ -207,7 +207,7 @@ export default function ProfilePage() {
                   Gender
                 </div>
                 <div className="text-sm font-semibold text-gray-900 capitalize">
-                  {profile?.gender || "—"}
+                  {profile?.gender || "-"}
                 </div>
               </div>
             </div>
@@ -232,7 +232,7 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <div className="text-sm font-semibold text-gray-900">
-                    {profile?.whatsapp_number || "—"}
+                    {profile?.whatsapp_number || "-"}
                   </div>
                 )}
               </div>

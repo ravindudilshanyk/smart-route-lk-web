@@ -60,7 +60,7 @@ export default function HomePage() {
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 relative z-10">
           <div className="flex flex-col lg:flex-row items-center gap-12">
-            {/* Left — text */}
+            {/* Left - text */}
             <div className="flex-1 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 bg-white bg-opacity-20 text-white text-xs font-semibold px-4 py-2 rounded-full mb-6">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
@@ -111,7 +111,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right — bus in white circle */}
+            {/* Right - bus in white circle */}
             <div
               className="hidden lg:flex flex-none items-center justify-center relative"
               style={{ width: 420, height: 380 }}
@@ -167,7 +167,7 @@ export default function HomePage() {
               value={form.origin}
               onChange={(value) => setForm((f) => ({ ...f, origin: value }))}
               onEnter={handleSearch}
-              placeholder="From — Origin"
+              placeholder="From - Origin"
               iconTone="text-gray-400"
               inputClassName="placeholder-gray-400"
             />
@@ -192,7 +192,7 @@ export default function HomePage() {
                 setForm((f) => ({ ...f, destination: value }))
               }
               onEnter={handleSearch}
-              placeholder="To — Destination"
+              placeholder="To - Destination"
               iconTone="text-brand-500"
             />
           </div>
@@ -234,7 +234,7 @@ export default function HomePage() {
             Why choose <span className="text-brand-500">SmartRouteLK?</span>
           </h2>
           <p className="text-gray-500 text-sm max-w-md mx-auto">
-            We're reimagining how Sri Lankans travel by bus — smarter, cheaper,
+            We're reimagining how Sri Lankans travel by bus - smarter, cheaper,
             and more convenient.
           </p>
         </div>
@@ -251,7 +251,7 @@ export default function HomePage() {
             {
               icon: "💺",
               title: "Pay Per Distance",
-              desc: "Only pay for the segment you travel — not the full route price.",
+              desc: "Only pay for the segment you travel - not the full route price.",
               color: "bg-brand-50 border-brand-100",
               iconBg: "bg-brand-100",
             },
@@ -301,14 +301,14 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 relative">
-            {/* Connector line — desktop only */}
+            {/* Connector line - desktop only */}
             <div className="hidden sm:block absolute top-10 left-1/4 right-1/4 h-0.5 bg-brand-100 z-0" />
 
             {[
               {
                 num: "01",
                 title: "Enter your journey",
-                desc: "Type your boarding point and destination — even if it's not the full route the bus travels.",
+                desc: "Type your boarding point and destination - even if it's not the full route the bus travels.",
               },
               {
                 num: "02",
@@ -352,7 +352,7 @@ export default function HomePage() {
             <ul className="space-y-3">
               {[
                 "Pay full route even for short trips",
-                "Fixed seats — no dynamic allocation",
+                "Fixed seats - no dynamic allocation",
                 "No live bus tracking",
                 "Paper tickets only",
                 "No connecting bus suggestions",
@@ -376,7 +376,7 @@ export default function HomePage() {
             <ul className="space-y-3">
               {[
                 "Pay only for distance you travel",
-                "Dynamic seats — reused after drop-off",
+                "Dynamic seats - reused after drop-off",
                 "Live GPS tracking on map",
                 "QR ticket on WhatsApp instantly",
                 "Smart connecting bus suggestions",

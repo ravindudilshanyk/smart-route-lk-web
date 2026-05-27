@@ -3,6 +3,7 @@ import axios from "axios";
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
   headers: { "Content-Type": "application/json" },
+  timeout: 15000,
 });
 
 // Attach token to every request automatically
@@ -14,7 +15,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 globally — token expired, force logout
+// Handle 401 globally - token expired, force logout
 api.interceptors.response.use(
   (response) => response,
   (error) => {

@@ -1,6 +1,6 @@
 const { pool } = require("../config/db");
 
-// ── Helper — calculate fare for a segment ────────────
+// ── Helper - calculate fare for a segment ────────────
 function calculateFare(bus, fromDistance, toDistance) {
   const distance = toDistance - fromDistance;
   const fare = distance * parseFloat(bus.price_per_km);
@@ -117,9 +117,11 @@ async function searchBuses(req, res) {
               route_name: row.route_name,
               board_stop_id: row.board_stop_id,
               board_stop_name: row.board_stop_name,
+              board_stop_order: parseInt(row.board_stop_order), // ✅ ADD THIS
               board_time: row.board_time,
               drop_stop_id: row.drop_stop_id,
               drop_stop_name: row.drop_stop_name,
+              drop_stop_order: parseInt(row.drop_stop_order), // ✅ ADD THIS
               drop_time: row.drop_time,
               fare,
               seats_available: seats,
@@ -243,9 +245,11 @@ async function searchBuses(req, res) {
               route_number: row.bus1_route,
               board_stop_id: row.leg1_board_id,
               board_stop_name: row.leg1_board_name,
+              board_stop_order: parseInt(row.leg1_board_order), // ✅ ADD THIS
               board_time: row.leg1_board_time,
               drop_stop_id: row.leg1_drop_id,
               drop_stop_name: row.transfer_stop_name,
+              drop_stop_order: parseInt(row.leg1_drop_order), // ✅ ADD THIS
               drop_time: row.leg1_drop_time,
               fare: fare1,
               seats_available: seats1,
@@ -263,9 +267,11 @@ async function searchBuses(req, res) {
               route_number: row.bus2_route,
               board_stop_id: row.leg2_board_id,
               board_stop_name: row.transfer_stop_name,
+              board_stop_order: parseInt(row.leg2_board_order), // ✅ ADD THIS
               board_time: row.leg2_board_time,
               drop_stop_id: row.leg2_drop_id,
               drop_stop_name: row.leg2_drop_name,
+              drop_stop_order: parseInt(row.leg2_drop_order), // ✅ ADD THIS
               drop_time: row.leg2_drop_time,
               fare: fare2,
               seats_available: seats2,
@@ -302,7 +308,7 @@ async function searchBuses(req, res) {
   }
 }
 
-// ── Helper — available seat count for a segment ──────
+// ── Helper - available seat count for a segment ──────
 async function getAvailableSeats(busId, date, boardOrder, dropOrder) {
   try {
     // Total active seats on this bus
@@ -336,7 +342,7 @@ async function getAvailableSeats(busId, date, boardOrder, dropOrder) {
   }
 }
 
-// ── Helper — minutes between two HH:MM times ─────────
+// ── Helper - minutes between two HH:MM times ─────────
 function timeDiff(from, to) {
   if (!from || !to) return 0;
   const [fh, fm] = from.split(":").map(Number);

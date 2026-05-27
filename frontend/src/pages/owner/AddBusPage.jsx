@@ -46,7 +46,7 @@ export default function AddBusPage() {
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState(null);
 
-  // Step 1 — Bus info
+  // Step 1 - Bus info
   const [busInfo, setBusInfo] = useState({
     reg_number: "",
     bus_type: "",
@@ -60,16 +60,16 @@ export default function AddBusPage() {
     has_water: false,
   });
 
-  // Step 2 — Stops
+  // Step 2 - Stops
   const [stops, setStops] = useState([
     { stop_name: "", estimated_time: "", distance_from_start_km: "" },
     { stop_name: "", estimated_time: "", distance_from_start_km: "" },
   ]);
 
-  // Step 3 — Seat layout
+  // Step 3 - Seat layout
   const [layout, setLayout] = useState({ rows: 10, cols: 5, aisle_col: 2 });
 
-  // Step 4 — Pricing
+  // Step 4 - Pricing
   const [pricing, setPricing] = useState({
     price_per_km: "",
     min_fare: "",
@@ -284,7 +284,7 @@ export default function AddBusPage() {
             <div>
               <h1 className="font-bold text-gray-900">Add New Bus</h1>
               <p className="text-xs text-gray-400">
-                Step {step} of 4 — {stepLabels[step - 1]}
+                Step {step} of 4 - {stepLabels[step - 1]}
               </p>
             </div>
           </div>
@@ -353,7 +353,7 @@ export default function AddBusPage() {
                     <option value="">Select type</option>
                     {BUS_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>
-                        {t.label} — {t.desc}
+                        {t.label} - {t.desc}
                       </option>
                     ))}
                   </select>
@@ -1001,7 +1001,7 @@ export default function AddBusPage() {
                   <div key={s.label}>
                     <div className="text-gray-400">{s.label}</div>
                     <div className="font-bold text-gray-900 mt-0.5 truncate">
-                      {s.value || "—"}
+                      {s.value || "-"}
                     </div>
                   </div>
                 ))}

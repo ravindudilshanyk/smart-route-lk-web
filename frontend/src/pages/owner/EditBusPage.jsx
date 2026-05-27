@@ -171,7 +171,7 @@ export default function EditBusPage() {
             </button>
             <div>
               <h1 className="font-bold text-gray-900">
-                Edit Bus — {busInfo?.reg_number}
+                Edit Bus - {busInfo?.reg_number}
               </h1>
               <p className="text-xs text-gray-400">{busInfo?.route_name}</p>
             </div>

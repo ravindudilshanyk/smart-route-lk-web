@@ -100,7 +100,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      {/* ── Fallback — must be LAST ── */}
+      {/* ── Fallback - must be LAST ── */}
       <Route path="/search" element={<SearchPage />} />
       <Route path="/support" element={<SupportPage />} />
       <Route

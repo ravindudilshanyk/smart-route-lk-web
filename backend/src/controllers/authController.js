@@ -2,7 +2,43 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { pool } = require("../config/db");
 
-// ── Helper — generate JWT token ─────────────────────
+function normalizeWhatsAppNumber(value) {
+  if (!value) return "";
+
+  const compact = String(value).trim().replace(/[\s-]/g, "");
+
+  if (compact.startsWith("0") && compact.length === 10) {
+    return `+94${compact.slice(1)}`;
+  }
+
+  if (compact.startsWith("94") && !compact.startsWith("+")) {
+    return `+${compact}`;
+  }
+
+  return compact;
+}
+
+function toDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function buildWhatsAppVariants(value) {
+  const normalized = normalizeWhatsAppNumber(value);
+  const digits = toDigits(normalized);
+  const variants = new Set([digits]);
+
+  // Support both local (077...) and intl (9477...) forms.
+  if (digits.startsWith("94") && digits.length === 11) {
+    variants.add(`0${digits.slice(2)}`);
+  }
+  if (digits.startsWith("0") && digits.length === 10) {
+    variants.add(`94${digits.slice(1)}`);
+  }
+
+  return Array.from(variants).filter(Boolean);
+}
+
+// ── Helper - generate JWT token ─────────────────────
 function generateToken(user) {
   return jwt.sign(
     {
@@ -28,6 +64,9 @@ async function register(req, res) {
     password,
   } = req.body;
 
+  const normalizedWhatsAppNumber = normalizeWhatsAppNumber(whatsapp_number);
+  const whatsappVariants = buildWhatsAppVariants(whatsapp_number);
+
   try {
     // 1. Check if NIC already exists
     const nicCheck = await pool.query("SELECT id FROM users WHERE nic = $1", [
@@ -39,8 +78,9 @@ async function register(req, res) {
 
     // 2. Check if WhatsApp number already exists
     const waCheck = await pool.query(
-      "SELECT id FROM users WHERE whatsapp_number = $1",
-      [whatsapp_number],
+      `SELECT id FROM users
+       WHERE regexp_replace(whatsapp_number, '\\D', '', 'g') = ANY($1::text[])`,
+      [whatsappVariants],
     );
     if (waCheck.rows.length > 0) {
       return res
@@ -48,7 +88,7 @@ async function register(req, res) {
         .json({ error: "WhatsApp number already registered." });
     }
 
-    // 3. Hash the password — never store plain text
+    // 3. Hash the password - never store plain text
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
@@ -64,7 +104,7 @@ async function register(req, res) {
         last_name,
         date_of_birth,
         gender,
-        whatsapp_number,
+        normalizedWhatsAppNumber,
         email || null,
         password_hash,
       ],
@@ -94,13 +134,16 @@ async function register(req, res) {
 // ── LOGIN ────────────────────────────────────────────
 async function login(req, res) {
   const { whatsapp_number, password } = req.body;
+  const whatsappVariants = buildWhatsAppVariants(whatsapp_number);
 
   try {
     // 1. Find user by WhatsApp number
     const result = await pool.query(
       `SELECT id, first_name, last_name, role, password_hash, status 
-       FROM users WHERE whatsapp_number = $1`,
-      [whatsapp_number],
+       FROM users
+       WHERE regexp_replace(whatsapp_number, '\\D', '', 'g') = ANY($1::text[])
+       LIMIT 1`,
+      [whatsappVariants],
     );
 
     if (result.rows.length === 0) {

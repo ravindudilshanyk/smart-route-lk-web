@@ -313,7 +313,7 @@ export default function MyBookingsPage() {
                       </div>
                     </div>
 
-                    {/* Right — fare + actions */}
+                    {/* Right - fare + actions */}
                     <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3">
                       <div className="text-right">
                         <div className="text-xl font-extrabold text-brand-500">

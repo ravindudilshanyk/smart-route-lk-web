@@ -137,7 +137,7 @@ export default function PaymentPage() {
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
           <Shield size={16} className="text-green-500 flex-none mt-0.5" />
           <div className="text-xs text-green-700">
-            <strong>Secure payment</strong> — processed by PayHere, Sri Lanka's
+            <strong>Secure payment</strong> - processed by PayHere, Sri Lanka's
             trusted payment gateway. Your card details are never stored on our
             servers.
           </div>

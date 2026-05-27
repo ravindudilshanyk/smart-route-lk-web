@@ -28,9 +28,10 @@ export default function LoginPage() {
       else if (user.role === "conductor") navigate("/conductor");
       else navigate("/");
     } catch (err) {
-      toast.error(
-        err.response?.data?.error || "Login failed. Check your details.",
-      );
+      const message = err.response?.data?.error
+        ? err.response.data.error
+        : "Cannot reach the server. Please check backend is running on port 5000.";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -69,7 +70,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* ── LEFT — Brand panel ───────────────────────── */}
+      {/* ── LEFT - Brand panel ───────────────────────── */}
       <div
         className="hidden lg:flex lg:w-5/12 flex-col justify-between p-12 relative overflow-hidden"
         style={{
@@ -107,7 +108,7 @@ export default function LoginPage() {
             <span className="opacity-80">bus travel.</span>
           </h2>
           <p className="text-white text-sm leading-relaxed mb-8 opacity-80">
-            Your bookings, tickets, and travel history — all in one place. Sign
+            Your bookings, tickets, and travel history - all in one place. Sign
             in and continue your journey.
           </p>
           <div className="flex flex-col gap-3">
@@ -135,7 +136,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── RIGHT — Form panel ───────────────────────── */}
+      {/* ── RIGHT - Form panel ───────────────────────── */}
       <div className="flex-1 bg-white flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-10">
         <div className="w-full max-w-md mx-auto">
           {/* Mobile logo */}

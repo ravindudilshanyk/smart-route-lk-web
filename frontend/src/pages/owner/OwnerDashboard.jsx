@@ -195,7 +195,7 @@ export default function OwnerDashboard() {
               value:
                 buses.length > 0
                   ? `${Math.round(buses.reduce((s, b) => s + (parseFloat(b.avg_occupancy) || 0), 0) / buses.length)}%`
-                  : "—",
+                  : "-",
               sub: "per trip",
               icon: <BarChart3 size={20} className="text-purple-500" />,
               bg: "bg-purple-50 border-purple-100",
@@ -404,65 +404,170 @@ export default function OwnerDashboard() {
 function AssignConductorModal({ bus, onClose, onAssigned }) {
   const [whatsapp, setWhatsapp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [conflict, setConflict] = useState(null); // holds conflict data
 
   const handleAssign = async () => {
-    if (!whatsapp) {
+    if (!whatsapp.trim()) {
       toast.error("Enter WhatsApp number.");
       return;
     }
     setLoading(true);
+    setConflict(null);
     try {
       const res = await api.post("/conductors/assign", {
         bus_id: bus.id,
-        whatsapp_number: whatsapp,
+        whatsapp_number: whatsapp.trim(),
       });
+      setResult({ success: true, message: res.data.message });
       toast.success(res.data.message);
+      setTimeout(() => onAssigned(), 1500);
+    } catch (err) {
+      const data = err.response?.data;
+      if (data?.error === "conductor_conflict") {
+        // Show conflict UI instead of error
+        setConflict(data);
+      } else {
+        setResult({
+          success: false,
+          message: data?.error || "Assignment failed.",
+        });
+        toast.error(data?.error || "Assignment failed.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForceReassign = async () => {
+    setLoading(true);
+    try {
+      await api.post("/conductors/reassign", {
+        conductor_user_id: conflict.conductor.id,
+        new_bus_id: conflict.conductor.new_bus_id,
+      });
+      toast.success("Conductor reassigned successfully.");
       onAssigned();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.error || "Assignment failed.");
+      toast.error("Reassignment failed.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
-        <h3 className="font-bold text-gray-900 mb-1">Assign Conductor</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Bus <strong>{bus.reg_number}</strong> · {bus.route_name}
-        </p>
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-700">
-          ⚠️ The conductor must already have a SmartRoute LK account. Their role
-          will be automatically upgraded to Conductor.
-        </div>
-        <label className="block text-xs font-semibold text-gray-600 mb-1">
-          Conductor's WhatsApp number *
-        </label>
-        <input
-          type="tel"
-          placeholder="+94 77 123 4567"
-          value={whatsapp}
-          onChange={(e) => setWhatsapp(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleAssign()}
-          className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-brand-500 mb-4"
-        />
-        <div className="flex gap-3">
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="font-bold text-gray-900 text-lg">
+              Assign Conductor
+            </h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Bus {bus.reg_number} · {bus.route_name}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:border-brand-300 transition-colors"
+            className="text-gray-400 hover:text-gray-600 text-xl"
           >
-            Cancel
-          </button>
-          <button
-            onClick={handleAssign}
-            disabled={loading}
-            className="flex-1 bg-brand-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-brand-600 transition-colors disabled:opacity-50"
-          >
-            {loading ? "Assigning..." : "Assign conductor"}
+            ×
           </button>
         </div>
+
+        {/* Conflict UI */}
+        {conflict ? (
+          <div>
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
+              <div className="font-bold text-amber-700 text-sm mb-2">
+                ⚠️ Conductor already assigned
+              </div>
+              <div className="text-xs text-amber-700 leading-relaxed">
+                <strong>{conflict.conductor.name}</strong> is currently the
+                conductor for <strong>{conflict.conductor.current_reg}</strong>{" "}
+                ({conflict.conductor.current_route}).
+              </div>
+              <div className="text-xs text-amber-600 mt-2">
+                Do you want to move them to{" "}
+                <strong>{conflict.conductor.new_reg}</strong> (
+                {conflict.conductor.new_route})? They will be removed from their
+                current bus.
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConflict(null)}
+                className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleForceReassign}
+                disabled={loading}
+                className="flex-1 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-amber-600 disabled:opacity-50"
+              >
+                {loading ? "Moving..." : "Yes, reassign"}
+              </button>
+            </div>
+          </div>
+        ) : result?.success ? (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm font-semibold text-green-700">
+            ✅ {result.message}
+          </div>
+        ) : (
+          <>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+              <p className="text-xs text-amber-700">
+                ⚠️ The conductor must already have a SmartRoute LK account.
+                Their role will be automatically upgraded to Conductor.
+              </p>
+            </div>
+
+            {result?.success === false && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3 text-xs text-red-600 font-semibold">
+                ❌ {result.message}
+              </div>
+            )}
+
+            <label className="block text-xs font-semibold text-gray-600 mb-1">
+              Conductor's WhatsApp number *
+            </label>
+            <input
+              type="tel"
+              placeholder="+94 77 123 4567"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAssign()}
+              className="w-full border-2 border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-brand-500 mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssign}
+                disabled={loading || !whatsapp.trim()}
+                className="flex-1 bg-brand-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
+                    Checking...
+                  </>
+                ) : (
+                  "Assign conductor"
+                )}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

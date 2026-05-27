@@ -52,7 +52,7 @@ export default function ConductorPage() {
       const res = await api.post("/conductor/scan", { token: token.trim() });
       setLastResult({ success: true, ...res.data });
       toast.success(
-        `✅ ${res.data.passenger_name} — Seat ${res.data.seat_number} verified!`,
+        `✅ ${res.data.passenger_name} - Seat ${res.data.seat_number} verified!`,
       );
       fetchTodayData();
     } catch (err) {
@@ -88,7 +88,7 @@ export default function ConductorPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 
-      {/* Hidden QR scanner input — captures physical scanner */}
+      {/* Hidden QR scanner input - captures physical scanner */}
       <input
         ref={inputRef}
         value={qrInput}
@@ -191,7 +191,7 @@ export default function ConductorPage() {
                   </div>
                   {lastResult.already_boarded && (
                     <div className="mt-2 text-xs text-orange-600 font-semibold flex items-center gap-1">
-                      <AlertCircle size={12} /> Already scanned — possible
+                      <AlertCircle size={12} /> Already scanned - possible
                       duplicate
                     </div>
                   )}

@@ -12,7 +12,7 @@ async function seed() {
         gender: 'other',
         whatsapp_number: '+94770000011',
         email: 'seed.complete@example.com',
-        password: 'Password123!'
+        password: 'password'
       },
       {
         nic: 'SEED000002',
@@ -22,7 +22,7 @@ async function seed() {
         gender: 'other',
         whatsapp_number: '+94770000012',
         email: 'seed.incomplete@example.com',
-        password: 'Password123!'
+        password: 'password'
       }
     ];
 

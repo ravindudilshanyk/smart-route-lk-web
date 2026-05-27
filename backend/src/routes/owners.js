@@ -8,10 +8,10 @@ const {
   uploadDocs,
 } = require("../controllers/ownerController");
 
-// Apply to become owner — any logged in passenger can apply
+// Apply to become owner - any logged in passenger can apply
 router.post("/apply", authMiddleware, uploadDocs, applyOwner);
 
-// Get own owner profile — only owners
+// Get own owner profile - only owners
 router.get(
   "/profile",
   authMiddleware,

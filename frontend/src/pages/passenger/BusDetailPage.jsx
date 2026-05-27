@@ -169,7 +169,7 @@ export default function BusDetailPage() {
               </div>
             </div>
 
-            {/* Right — fare + book */}
+            {/* Right - fare + book */}
             <div className="flex-none">
               <div className="bg-brand-50 border border-brand-100 rounded-2xl p-5 text-center min-w-44">
                 <div className="text-xs text-gray-500 mb-1">Fare from</div>
@@ -366,7 +366,7 @@ export default function BusDetailPage() {
               </h2>
               {reviews.length === 0 ? (
                 <div className="text-sm text-gray-400 text-center py-4">
-                  No reviews yet — be the first to review after your trip!
+                  No reviews yet - be the first to review after your trip!
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -445,7 +445,7 @@ export default function BusDetailPage() {
                     className="text-green-500 flex-none mt-0.5"
                   />
                   <span>
-                    Cancel {bus.refund_hours_threshold}h before departure —{" "}
+                    Cancel {bus.refund_hours_threshold}h before departure -{" "}
                     <strong>{bus.refund_pct_before}% refund</strong>
                   </span>
                 </div>
@@ -455,14 +455,14 @@ export default function BusDetailPage() {
                     className="text-amber-500 flex-none mt-0.5"
                   />
                   <span>
-                    Cancel within {bus.refund_hours_threshold}h —{" "}
+                    Cancel within {bus.refund_hours_threshold}h -{" "}
                     <strong>{bus.refund_pct_within}% refund</strong>
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Contact — shown after booking note */}
+            {/* Contact - shown after booking note */}
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
               <div className="flex items-start gap-2">
                 <Phone size={14} className="text-brand-500 flex-none mt-0.5" />

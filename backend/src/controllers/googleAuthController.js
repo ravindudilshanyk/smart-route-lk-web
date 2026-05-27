@@ -54,7 +54,7 @@ async function googleAuth(req, res) {
       });
     }
 
-    // 2. New Google user — create with partial data only
+    // 2. New Google user - create with partial data only
     const firstName = given_name || (name ? name.split(" ")[0] : "User");
     const lastName =
       family_name || (name ? name.split(" ").slice(1).join(" ") : "");

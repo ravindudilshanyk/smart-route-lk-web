@@ -3,7 +3,7 @@ const router = express.Router();
 const { pool } = require("../config/db");
 const authMiddleware = require("../middleware/auth");
 
-// ── Complete profile — Level 2 (WhatsApp + gender) ──
+// ── Complete profile - Level 2 (WhatsApp + gender) ──
 router.patch("/complete-profile", authMiddleware, async (req, res) => {
   const { nic, date_of_birth, gender, whatsapp_number } = req.body;
 

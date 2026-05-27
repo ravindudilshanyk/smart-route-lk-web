@@ -190,7 +190,7 @@ export default function ApplyOwnerPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          {/* Step 1 — Business details */}
+          {/* Step 1 - Business details */}
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="font-bold text-gray-900 mb-4">
@@ -297,7 +297,7 @@ export default function ApplyOwnerPage() {
             </div>
           )}
 
-          {/* Step 2 — Documents */}
+          {/* Step 2 - Documents */}
           {step === 2 && (
             <div className="space-y-4">
               <h2 className="font-bold text-gray-900 mb-1">Upload documents</h2>
@@ -307,8 +307,8 @@ export default function ApplyOwnerPage() {
               </p>
 
               {[
-                { key: "nic_front", label: "NIC — Front side", required: true },
-                { key: "nic_back", label: "NIC — Back side", required: true },
+                { key: "nic_front", label: "NIC - Front side", required: true },
+                { key: "nic_back", label: "NIC - Back side", required: true },
                 {
                   key: "revenue_licence",
                   label: "Revenue licence",

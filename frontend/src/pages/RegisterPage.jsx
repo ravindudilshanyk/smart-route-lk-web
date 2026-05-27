@@ -84,7 +84,7 @@ export default function RegisterPage() {
         );
         const userInfo = await response.json();
 
-        // Send to backend — same endpoint handles both login and register
+        // Send to backend - same endpoint handles both login and register
         const { user, profile_complete } = await googleLogin(userInfo);
 
         toast.success(`Welcome to SmartRoute LK, ${user.first_name}! 🎉`);
@@ -109,7 +109,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* ── LEFT — Brand panel ───────────────────────── */}
+      {/* ── LEFT - Brand panel ───────────────────────── */}
       <div
         className="hidden lg:flex lg:w-5/12 flex-col justify-between p-12 relative overflow-hidden"
         style={{
@@ -150,7 +150,7 @@ export default function RegisterPage() {
             <span className="text-white opacity-80">what you travel.</span>
           </h2>
           <p className="text-white text-opacity-80 text-sm leading-relaxed mb-8 opacity-80">
-            Join thousands of Sri Lankan travellers who book buses smarter —
+            Join thousands of Sri Lankan travellers who book buses smarter -
             direct routes, connecting buses, and seat-by-segment pricing.
           </p>
 
@@ -181,7 +181,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* ── RIGHT — Form panel ───────────────────────── */}
+      {/* ── RIGHT - Form panel ───────────────────────── */}
       <div className="flex-1 bg-white flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-10 overflow-y-auto">
         <div className="w-full max-w-md mx-auto">
           {/* Mobile logo */}

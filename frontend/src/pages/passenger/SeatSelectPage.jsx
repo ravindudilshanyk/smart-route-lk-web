@@ -46,6 +46,7 @@ export default function SeatSelectPage() {
   const [step, setStep] = useState("seats");
   const [submitting, setSubmitting] = useState(false);
   const [bookingResult, setBookingResult] = useState(null);
+  const [partialConfirm, setPartialConfirm] = useState(null);
 
   const leg = legs[currentLegIdx];
   const ls = legSelections[currentLegIdx];
@@ -110,12 +111,13 @@ export default function SeatSelectPage() {
     const info = availability?.[seat.id];
     if (!info || (!info.fully_booked && !info.partially_booked)) return null;
     if (info.fully_booked) return "Fully booked for your journey";
-    return "Partially booked — your segment is available";
+    return "Partially booked - your segment is available";
   };
 
   const handleSeatClick = (seat) => {
     const status = getSeatStatus(seat, ls.availability);
     if (status === "booked") return;
+
     const isSelected = ls.selectedSeats.find((s) => s.id === seat.id);
     if (isSelected) {
       setLegSelections((prev) =>
@@ -129,21 +131,36 @@ export default function SeatSelectPage() {
         ),
       );
       setPassengers((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
-    } else {
-      setLegSelections((prev) =>
-        prev.map((l, i) =>
-          i === currentLegIdx
-            ? { ...l, selectedSeats: [...l.selectedSeats, seat] }
-            : l,
-        ),
-      );
-      setPassengers((prev) => {
-        const newCount = ls.selectedSeats.length + 1;
-        if (newCount > prev.length)
-          return [...prev, { name: "", gender: "", nic: "" }];
-        return prev;
-      });
+      return;
     }
+
+    if (status === "partial") {
+      // Show modal instead of window.confirm
+      setPartialConfirm({ seat, availInfo: ls.availability[seat.id] });
+      return;
+    }
+
+    confirmSeatSelect(seat, false);
+  };
+
+  const confirmSeatSelect = (seat, isPartial) => {
+    setPartialConfirm(null);
+    setLegSelections((prev) =>
+      prev.map((l, i) =>
+        i === currentLegIdx
+          ? {
+              ...l,
+              selectedSeats: [...l.selectedSeats, { ...seat, isPartial }],
+            }
+          : l,
+      ),
+    );
+    setPassengers((prev) => {
+      const newCount = ls.selectedSeats.length + 1;
+      if (newCount > prev.length)
+        return [...prev, { name: "", gender: "", nic: "" }];
+      return prev;
+    });
   };
 
   const togglePayOnBus = () => {
@@ -195,9 +212,9 @@ export default function SeatSelectPage() {
       setCurrentLegIdx(next);
       await loadLeg(next);
     } else {
-      // All legs done — check if anything to pay
+      // All legs done - check if anything to pay
       if (allPayOnBus) {
-        // Nothing to pay online — go straight to success with empty bookings
+        // Nothing to pay online - go straight to success with empty bookings
         setBookingResult([]);
         setStep("success");
       } else {
@@ -274,6 +291,7 @@ export default function SeatSelectPage() {
               nic: p.nic || null,
               gender: p.gender || "other",
               seat_id: ls.selectedSeats[i]?.id,
+              accept_partial_seat: ls.selectedSeats[i]?.isPartial || false, // ✅ ADD THIS
             })),
         });
         bookingIds.push(res.data.booking_id);
@@ -286,7 +304,7 @@ export default function SeatSelectPage() {
         });
       }
 
-      // If all cash — skip payment
+      // If all cash - skip payment
       if (bookingIds.length === 0) {
         setBookingResult([]);
         setStep("success");
@@ -544,7 +562,7 @@ export default function SeatSelectPage() {
                   onClick={togglePayOnBus}
                   className="text-xs text-orange-500 hover:text-orange-700 underline transition-colors"
                 >
-                  ← Change my mind — select a seat instead
+                  ← Change my mind - select a seat instead
                 </button>
               </div>
             ) : (
@@ -591,7 +609,7 @@ export default function SeatSelectPage() {
                       <div className="w-3 h-3 bg-pink-200 rounded" /> Female
                     </span>
                     <span className="flex items-center gap-1">🚪 Door</span>
-                    <span className="flex items-center gap-1">— Aisle</span>
+                    <span className="flex items-center gap-1">- Aisle</span>
                   </div>
                 </div>
 
@@ -647,6 +665,7 @@ export default function SeatSelectPage() {
                                   </div>
                                 );
                               }
+
                               const seat = seatAt(row, col);
                               if (!seat || !seat.is_active)
                                 return (
@@ -655,6 +674,7 @@ export default function SeatSelectPage() {
                                     className="w-10 h-10 flex-none"
                                   />
                                 );
+
                               const status = getSeatStatus(
                                 seat,
                                 ls.availability,
@@ -662,10 +682,25 @@ export default function SeatSelectPage() {
                               const isSelected = ls.selectedSeats.find(
                                 (s) => s.id === seat.id,
                               );
-                              const tooltip = getSeatTooltip(
-                                seat,
-                                ls.availability,
-                              );
+                              const availInfo = ls.availability[seat.id];
+
+                              // Determine button className as a plain string — NO JSX inside
+                              let seatClass =
+                                "w-10 h-10 rounded-lg text-xs font-bold transition-all border-2 ";
+                              if (isSelected) {
+                                seatClass +=
+                                  "bg-brand-500 border-brand-600 text-white shadow-md";
+                              } else if (status === "booked") {
+                                seatClass +=
+                                  "bg-red-100 border-red-200 text-red-400 cursor-not-allowed";
+                              } else if (status === "partial") {
+                                seatClass +=
+                                  "bg-yellow-100 border-yellow-300 text-yellow-700 hover:border-yellow-400 cursor-pointer";
+                              } else {
+                                seatClass +=
+                                  "bg-green-100 border-green-300 text-green-700 hover:bg-green-200 hover:border-green-400";
+                              }
+
                               return (
                                 <div
                                   key={col}
@@ -674,23 +709,62 @@ export default function SeatSelectPage() {
                                   <button
                                     onClick={() => handleSeatClick(seat)}
                                     disabled={status === "booked"}
-                                    title={tooltip || ""}
-                                    className={`w-10 h-10 rounded-lg text-xs font-bold transition-all border-2 ${
-                                      isSelected
-                                        ? "bg-brand-500 border-brand-600 text-white shadow-md"
-                                        : status === "booked"
-                                          ? "bg-red-100 border-red-200 text-red-400 cursor-not-allowed"
-                                          : status === "partial"
-                                            ? "bg-yellow-100 border-yellow-300 text-yellow-700 hover:border-yellow-400 cursor-pointer"
-                                            : "bg-green-100 border-green-300 text-green-700 hover:border-green-500 hover:bg-green-200 cursor-pointer"
-                                    }`}
+                                    className={seatClass}
                                   >
                                     {seat.seat_number}
                                   </button>
-                                  {tooltip && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-900 text-white text-xs rounded-lg px-2.5 py-1.5 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-xl">
-                                      {tooltip}
-                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+
+                                  {/* Tooltip — partial seat */}
+                                  {status === "partial" && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                                      <div className="bg-gray-900 text-white text-xs rounded-xl px-3 py-2 whitespace-nowrap shadow-xl">
+                                        <div className="font-bold text-yellow-400 mb-1">
+                                          ⚡ Partially available
+                                        </div>
+                                        <div>
+                                          Free until:{" "}
+                                          <span className="font-semibold">
+                                            {availInfo?.taken_from}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          Then taken:{" "}
+                                          <span className="font-semibold">
+                                            {availInfo?.taken_from}
+                                          </span>
+                                          {" → "}
+                                          <span className="font-semibold">
+                                            {availInfo?.taken_to}
+                                          </span>
+                                        </div>
+                                        <div className="text-gray-400 text-xs mt-0.5">
+                                          Click to book — you will move at{" "}
+                                          {availInfo?.taken_from}
+                                        </div>
+                                      </div>
+                                      <div className="w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
+                                    </div>
+                                  )}
+
+                                  {/* Tooltip — booked seat */}
+                                  {status === "booked" && availInfo && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                                      <div className="bg-gray-900 text-white text-xs rounded-xl px-3 py-2 whitespace-nowrap shadow-xl">
+                                        <div className="font-bold text-red-400 mb-1">
+                                          🔴 Booked
+                                        </div>
+                                        <div>
+                                          Taken:{" "}
+                                          <span className="font-semibold">
+                                            {availInfo?.taken_from}
+                                          </span>
+                                          {" → "}
+                                          <span className="font-semibold">
+                                            {availInfo?.taken_to}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
                                     </div>
                                   )}
                                 </div>
@@ -757,17 +831,23 @@ export default function SeatSelectPage() {
                         </span>
                         <div className="flex items-center gap-2">
                           {seatForThis && (
-                            <span className="bg-brand-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                              Seat {seatForThis.seat_number}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span
+                                className={`text-white text-xs font-bold px-2 py-0.5 rounded-full ${
+                                  seatForThis.isPartial
+                                    ? "bg-yellow-500"
+                                    : "bg-brand-500"
+                                }`}
+                              >
+                                Seat {seatForThis.seat_number}
+                                {seatForThis.isPartial && " ⚡"}
+                              </span>
+                            </div>
                           )}
-                          {idx > 0 && (
-                            <button
-                              onClick={() => removePassenger(idx)}
-                              className="text-gray-300 hover:text-red-400 transition-colors"
-                            >
-                              <X size={13} />
-                            </button>
+                          {seatForThis?.isPartial && (
+                            <div className="text-xs text-yellow-600 font-semibold mt-1 flex items-center gap-1">
+                              ⚠️ Temporary — must move mid-journey
+                            </div>
                           )}
                         </div>
                       </div>
@@ -831,7 +911,7 @@ export default function SeatSelectPage() {
 
               <div className="mt-3 text-xs text-gray-400 flex items-start gap-1.5 bg-gray-50 rounded-xl p-2.5">
                 <Info size={11} className="flex-none mt-0.5 text-brand-500" />
-                Select seats on the map — passengers are added automatically.
+                Select seats on the map - passengers are added automatically.
               </div>
             </div>
 
@@ -950,6 +1030,71 @@ export default function SeatSelectPage() {
           {/* ══ END RIGHT COLUMN ══ */}
         </div>
       </div>
+
+      {/* Partial seat confirmation modal */}
+      {partialConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="text-center mb-4">
+              <div className="w-14 h-14 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <h3 className="font-bold text-gray-900 text-lg mb-1">
+                Temporary Seat
+              </h3>
+              <p className="text-sm text-gray-500">
+                Seat {partialConfirm.seat.seat_number} is partially available
+              </p>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 text-sm text-yellow-800">
+              <div className="font-semibold mb-2">What this means:</div>
+              <ul className="space-y-1.5 text-xs">
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 font-bold flex-none">✓</span>
+                  <span>
+                    Seat is free from <strong>{leg?.board_stop_name}</strong>{" "}
+                    until{" "}
+                    <strong>{partialConfirm.availInfo?.taken_from}</strong>
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 font-bold flex-none">⚡</span>
+                  <span>
+                    Another passenger boards at{" "}
+                    <strong>{partialConfirm.availInfo?.taken_from}</strong> —
+                    you must move to another seat at that stop
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold flex-none">→</span>
+                  <span>Conductor will help you find an available seat</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3 mb-5 text-xs text-gray-500">
+              💡 Only choose this if you are comfortable moving during the
+              journey. The conductor will assist you in finding an empty seat.
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPartialConfirm(null)}
+                className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:border-brand-500 transition-colors"
+              >
+                Choose another seat
+              </button>
+              <button
+                onClick={() => confirmSeatSelect(partialConfirm.seat, true)}
+                className="flex-1 bg-yellow-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-yellow-600 transition-colors"
+              >
+                I understand, book it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1054,7 +1199,7 @@ function PaymentStep({
           />
           <p className="text-xs text-gray-400 mt-2 flex items-start gap-1.5">
             <Info size={12} className="flex-none mt-0.5 text-brand-500" />
-            Each bus gets its own QR. Conductors scan only their bus QR —
+            Each bus gets its own QR. Conductors scan only their bus QR -
             tracked per leg automatically.
           </p>
         </div>

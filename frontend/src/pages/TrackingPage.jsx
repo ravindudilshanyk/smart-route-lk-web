@@ -43,7 +43,7 @@ export default function TrackingPage() {
       setLocation({ lat: data.latitude, lng: data.longitude });
       setLastUpdate(new Date().toLocaleTimeString());
       setBusInfo(data.bus_info);
-      setStatus(`Bus is moving — updated ${new Date().toLocaleTimeString()}`);
+      setStatus(`Bus is moving - updated ${new Date().toLocaleTimeString()}`);
     });
 
     socket.on("bus_stopped", () => {

@@ -13,7 +13,7 @@ import { useState } from "react";
 const FAQ = [
   {
     q: "How does seat-by-segment pricing work?",
-    a: "You pay only for the distance you travel — not the full bus route. If a bus goes Colombo → Kandy → Badulla and you board at Colombo and alight at Kandy, you pay only the Colombo–Kandy fare. The same seat can then be booked by another passenger from Kandy to Badulla.",
+    a: "You pay only for the distance you travel - not the full bus route. If a bus goes Colombo → Kandy → Badulla and you board at Colombo and alight at Kandy, you pay only the Colombo–Kandy fare. The same seat can then be booked by another passenger from Kandy to Badulla.",
   },
   {
     q: "What is a connecting bus journey?",
@@ -25,7 +25,7 @@ const FAQ = [
   },
   {
     q: "Can I cancel my booking?",
-    a: "Yes. Go to My Bookings and click Cancel on any confirmed future booking. Your refund percentage depends on the bus owner's refund policy — typically 100% if cancelled more than 24 hours before departure and 50% if cancelled within 24 hours.",
+    a: "Yes. Go to My Bookings and click Cancel on any confirmed future booking. Your refund percentage depends on the bus owner's refund policy - typically 100% if cancelled more than 24 hours before departure and 50% if cancelled within 24 hours.",
   },
   {
     q: "What is the pay-on-bus option?",

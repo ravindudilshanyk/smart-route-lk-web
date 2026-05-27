@@ -608,12 +608,12 @@ function OwnerCard({ owner, processing, onApprove, onReject, verified }) {
       {expanded && (
         <div className="border-t border-gray-50 bg-gray-50 p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
           {[
-            { label: "Business name", value: owner.business_name || "—" },
-            { label: "Reg. number", value: owner.business_reg_number || "—" },
-            { label: "District", value: owner.district || "—" },
-            { label: "Address", value: owner.address || "—" },
-            { label: "WhatsApp alerts", value: owner.whatsapp_alerts || "—" },
-            { label: "NIC", value: owner.nic || "—" },
+            { label: "Business name", value: owner.business_name || "-" },
+            { label: "Reg. number", value: owner.business_reg_number || "-" },
+            { label: "District", value: owner.district || "-" },
+            { label: "Address", value: owner.address || "-" },
+            { label: "WhatsApp alerts", value: owner.whatsapp_alerts || "-" },
+            { label: "NIC", value: owner.nic || "-" },
           ].map((f) => (
             <div key={f.label}>
               <div className="text-gray-400 mb-0.5">{f.label}</div>

@@ -43,15 +43,24 @@ export function AuthProvider({ children }) {
     const { token, user } = res.data;
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(user));
-    const me = await authAPI.me();
-    const current = me.data.user;
-    localStorage.setItem("user", JSON.stringify(current));
-    localStorage.setItem(
-      "profile_complete",
-      hasCompleteProfile(current) ? "true" : "false",
-    );
-    setUser(current);
-    return current;
+    try {
+      const me = await authAPI.me();
+      const current = me.data.user;
+      localStorage.setItem("user", JSON.stringify(current));
+      localStorage.setItem(
+        "profile_complete",
+        hasCompleteProfile(current) ? "true" : "false",
+      );
+      setUser(current);
+      return current;
+    } catch {
+      localStorage.setItem(
+        "profile_complete",
+        hasCompleteProfile(user) ? "true" : "false",
+      );
+      setUser(user);
+      return user;
+    }
   };
 
   const register = async (formData) => {
@@ -59,15 +68,24 @@ export function AuthProvider({ children }) {
     const { token, user } = res.data;
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(user));
-    const me = await authAPI.me();
-    const current = me.data.user;
-    localStorage.setItem("user", JSON.stringify(current));
-    localStorage.setItem(
-      "profile_complete",
-      hasCompleteProfile(current) ? "true" : "false",
-    );
-    setUser(current);
-    return current;
+    try {
+      const me = await authAPI.me();
+      const current = me.data.user;
+      localStorage.setItem("user", JSON.stringify(current));
+      localStorage.setItem(
+        "profile_complete",
+        hasCompleteProfile(current) ? "true" : "false",
+      );
+      setUser(current);
+      return current;
+    } catch {
+      localStorage.setItem(
+        "profile_complete",
+        hasCompleteProfile(user) ? "true" : "false",
+      );
+      setUser(user);
+      return user;
+    }
   };
 
   const googleLogin = async (userInfo) => {
@@ -79,15 +97,23 @@ export function AuthProvider({ children }) {
       "profile_complete",
       profile_complete ? "true" : "false",
     );
-    const me = await authAPI.me();
-    const current = me.data.user;
-    localStorage.setItem("user", JSON.stringify(current));
-    localStorage.setItem(
-      "profile_complete",
-      hasCompleteProfile(current) ? "true" : "false",
-    );
-    setUser(current);
-    return { user: current, profile_complete: hasCompleteProfile(current) };
+    try {
+      const me = await authAPI.me();
+      const current = me.data.user;
+      localStorage.setItem("user", JSON.stringify(current));
+      localStorage.setItem(
+        "profile_complete",
+        hasCompleteProfile(current) ? "true" : "false",
+      );
+      setUser(current);
+      return { user: current, profile_complete: hasCompleteProfile(current) };
+    } catch {
+      setUser(user);
+      return {
+        user,
+        profile_complete: profile_complete || hasCompleteProfile(user),
+      };
+    }
   };
 
   const logout = () => {

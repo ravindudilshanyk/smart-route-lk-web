@@ -1,5 +1,15 @@
 require("dotenv").config();
 
+const express = require("express");
+const http = require("http");
+const cors = require("cors");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const { Server } = require("socket.io");
+const { connectDB } = require("./config/db");
+const logger = require("./utils/logger");
+
+// ── Routes ─────────────────────────────────────────
 const authRoutes = require("./routes/auth");
 const ownerRoutes = require("./routes/owners");
 const busRoutes = require("./routes/buses");
@@ -8,29 +18,30 @@ const bookingRoutes = require("./routes/bookings");
 const userRoutes = require("./routes/users");
 const seatRoutes = require("./routes/seats");
 const adminRoutes = require("./routes/admin");
-const conductorRoutes = require("./routes/conductor");
+const conductorRoutes = require("./routes/conductor"); // QR scanning page
+const conductorsRoutes = require("./routes/conductors"); // assign conductor
 const paymentRoutes = require("./routes/payments");
-const conductorsRoutes = require("./routes/conductors");
-
-const express = require("express");
-const http = require("http");
-const cors = require("cors");
-const helmet = require("helmet");
-const morgan = require("morgan");
-const { connectDB } = require("./config/db");
-const logger = require("./utils/logger");
 
 const app = express();
 const server = http.createServer(app);
 
 // ── Middleware ──────────────────────────────────────
 app.use(helmet());
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      process.env.FRONTEND_URL,
+    ].filter(Boolean),
+    credentials: true,
+  }),
+);
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+// ── API Routes ──────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/owners", ownerRoutes);
 app.use("/api/buses", busRoutes);
@@ -39,11 +50,11 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/seats", seatRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/conductor", conductorRoutes);
+app.use("/api/conductor", conductorRoutes); // /api/conductor/today, /api/conductor/scan
+app.use("/api/conductors", conductorsRoutes); // /api/conductors/assign
 app.use("/api/payments", paymentRoutes);
-app.use("/api/conductors", conductorRoutes);
 
-// ── Health check route ──────────────────────────────
+// ── Health check ────────────────────────────────────
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -64,25 +75,21 @@ app.use((err, req, res, next) => {
 });
 
 // ── Socket.IO real-time tracking ─────────────────────
-const { Server } = require("socket.io");
+const busLocations = {};
+
 const io = new Server(server, {
   cors: {
-    origin: [process.env.FRONTEND_URL, "http://localhost:5173"],
+    origin: ["http://localhost:5173", process.env.FRONTEND_URL].filter(Boolean),
     credentials: true,
   },
 });
 
-// Store active bus locations in memory
-const busLocations = {};
-
 io.on("connection", (socket) => {
   console.log("Socket connected:", socket.id);
 
-  // Conductor broadcasts location
-  socket.on("update_location", async (data) => {
+  socket.on("update_location", (data) => {
     const { bus_id, latitude, longitude } = data;
     busLocations[bus_id] = { latitude, longitude, updated_at: new Date() };
-    // Broadcast to all tracking this bus
     io.to(`bus_${bus_id}`).emit("bus_location", {
       latitude,
       longitude,
@@ -90,10 +97,8 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Passenger subscribes to bus tracking
   socket.on("track_bus", (data) => {
     socket.join(`bus_${data.bus_id}`);
-    // Send last known location immediately if available
     if (busLocations[data.bus_id]) {
       socket.emit("bus_location", busLocations[data.bus_id]);
     }

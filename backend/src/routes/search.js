@@ -5,7 +5,7 @@ const {
 	getStopSuggestions,
 } = require("../controllers/searchController");
 
-// Search is public — no login required
+// Search is public - no login required
 router.get("/stops", getStopSuggestions);
 router.get("/", searchBuses);
 

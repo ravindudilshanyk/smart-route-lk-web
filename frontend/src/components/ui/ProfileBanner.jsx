@@ -22,7 +22,7 @@ export default function ProfileBanner() {
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <AlertCircle size={16} className="text-amber-500 flex-none" />
           <p className="text-sm text-amber-700 truncate">
-            <span className="font-semibold">Complete your profile</span> —
+            <span className="font-semibold">Complete your profile</span> -
             needed for NIC, WhatsApp, and gender to book buses.
           </p>
         </div>
